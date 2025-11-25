@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   Calculator, 
@@ -17,8 +17,8 @@ import {
   Upload, 
   Download, 
   Copy, 
-  ChevronRight,
-  ChevronDown,
+  ChevronRight, 
+  ChevronDown, 
   Gauge,
   Landmark,
   Activity,
@@ -27,10 +27,8 @@ import {
   FileJson,
   RefreshCw,
   AlertCircle,
-  Regex,
   QrCode,
   Search,
-  Replace,
   Type,
   FileText,
   GitCompare,
@@ -42,10 +40,12 @@ import {
   Play,
   Pause,
   RotateCcw,
-  Globe,
-  Calendar,
-  Percent,
-  Briefcase
+  Briefcase,
+  Users,
+  Plus,
+  ArrowRight,
+  BarChart,
+  Wallet
 } from 'lucide-react';
 
 // --- UTILS ---
@@ -79,12 +79,13 @@ const loadScript = (src) => {
 // --- SHARED COMPONENTS ---
 
 const ToolCard = ({ title, desc, icon: Icon, onClick, colorClass }) => (
-  <div onClick={onClick} className="bg-slate-900 p-6 rounded-2xl border border-slate-800 cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:shadow-primary-500/10 transition-all duration-300 group h-full">
-    <div className={`w-12 h-12 rounded-full ${colorClass} bg-opacity-10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+  <div onClick={onClick} className="relative overflow-hidden bg-slate-900 p-6 rounded-2xl border border-slate-800/60 cursor-pointer hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary-500/10 hover:border-primary-500/30 transition-all duration-300 group h-full">
+    <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${colorClass.replace('text-', 'from-').replace('500', '500/10')} to-transparent rounded-bl-full -mr-8 -mt-8 transition-opacity opacity-0 group-hover:opacity-100 pointer-events-none`} />
+    <div className={`w-12 h-12 rounded-xl ${colorClass} bg-opacity-10 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 shadow-inner`}>
       <Icon size={24} strokeWidth={2} />
     </div>
-    <h3 className="text-lg font-semibold text-white mb-1">{title}</h3>
-    <p className="text-sm text-slate-400">{desc}</p>
+    <h3 className="text-lg font-bold text-white mb-1 tracking-tight">{title}</h3>
+    <p className="text-sm text-slate-400 font-medium">{desc}</p>
   </div>
 );
 
@@ -97,46 +98,44 @@ const Toast = ({ message, show, onClose }) => {
   }, [show, onClose]);
 
   return (
-    <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-primary-600 text-white px-6 py-3 rounded-lg shadow-lg shadow-primary-500/30 flex items-center gap-2 transition-all duration-300 z-50 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-      <CheckCircle size={18} />
-      <span>{message}</span>
+    <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-slate-800 border border-primary-500/30 text-white px-6 py-3 rounded-xl shadow-2xl shadow-primary-500/20 flex items-center gap-3 transition-all duration-300 z-50 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+      <div className="bg-primary-500/20 p-1 rounded-full text-primary-400"><CheckCircle size={16} /></div>
+      <span className="text-sm font-medium">{message}</span>
     </div>
   );
 };
 
-// --- DASHBOARD ---
-
-const Dashboard = ({ changeTool }) => (
-  <div className="animate-fade-in p-6 md:p-10 max-w-7xl mx-auto">
-    <div className="mb-8">
-      <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
-      <p className="text-slate-400">Select a utility to get started.</p>
+const BalanceChart = ({ data }) => {
+  if (!data || data.length === 0) return null;
+  const maxVal = Math.max(...data.map(d => Math.abs(d.amount)), 10);
+  
+  return (
+    <div className="space-y-4 py-2">
+      {data.map(d => {
+        const isPositive = d.amount >= 0;
+        const widthPct = (Math.abs(d.amount) / maxVal) * 100;
+        return (
+          <div key={d.name} className="flex items-center text-xs">
+            <div className="w-20 text-right pr-3 text-slate-400 font-medium truncate">{d.name}</div>
+            <div className="flex-1 h-8 bg-slate-950/50 rounded-lg relative flex items-center overflow-hidden border border-slate-800/50">
+              <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-800"></div>
+              <div 
+                className={`h-full transition-all duration-700 ease-out ${isPositive ? 'bg-emerald-500/20 border-r-2 border-emerald-500' : 'bg-rose-500/20 border-l-2 border-rose-500'}`}
+                style={{ 
+                  width: `${widthPct/2}%`, 
+                  left: isPositive ? '50%' : `calc(50% - ${widthPct/2}%)`
+                }}
+              ></div>
+              <span className={`absolute ${isPositive ? 'left-[calc(50%+8px)]' : 'right-[calc(50%+8px)]'} ${isPositive ? 'text-emerald-400' : 'text-rose-400'} font-mono font-bold`}>
+                {d.amount > 0 ? '+' : ''}{Math.round(d.amount)}
+              </span>
+            </div>
+          </div>
+        )
+      })}
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <ToolCard title="Calculator" desc="Math with history & precision." icon={Calculator} onClick={() => changeTool('calculator')} colorClass="bg-blue-100 text-blue-500" />
-      <ToolCard title="Unit Converter" desc="Standardized units (g, kg, m)." icon={ArrowRightLeft} onClick={() => changeTool('unit-converter')} colorClass="bg-emerald-100 text-emerald-500" />
-      <ToolCard title="Split Bill" desc="Splitwise style with tips." icon={Receipt} onClick={() => changeTool('split-bill')} colorClass="bg-orange-100 text-orange-500" />
-      <ToolCard title="Rate Calculator" desc="Calculate Price-to-Weight." icon={Tag} onClick={() => changeTool('rate-calc')} colorClass="bg-pink-100 text-pink-500" />
-      <ToolCard title="Currency" desc="Live conversion estimates." icon={Coins} onClick={() => changeTool('currency')} colorClass="bg-yellow-100 text-yellow-500" />
-      <ToolCard title="EMI Calculator" desc="Loan & Interest breakdown." icon={Landmark} onClick={() => changeTool('emi-calc')} colorClass="bg-teal-100 text-teal-500" />
-      <ToolCard title="Health Station" desc="BMI, BMR & Calories." icon={Activity} onClick={() => changeTool('health')} colorClass="bg-rose-100 text-rose-500" />
-      <ToolCard title="Text Studio" desc="Case, Diff & Generators." icon={FileText} onClick={() => changeTool('text-tools')} colorClass="bg-indigo-100 text-indigo-400" />
-      <ToolCard title="Finance Suite" desc="GST, Discount, Tax." icon={Briefcase} onClick={() => changeTool('finance-suite')} colorClass="bg-green-100 text-green-600" />
-      <ToolCard title="Time Suite" desc="Stopwatch, Timers, Zones." icon={Clock} onClick={() => changeTool('time-suite')} colorClass="bg-sky-100 text-sky-500" />
-      <ToolCard title="Password Vault" desc="Generate secure strings." icon={Lock} onClick={() => changeTool('password')} colorClass="bg-indigo-100 text-indigo-500" />
-      <ToolCard title="Dev Tools" desc="Base64, Hashing, URL." icon={Binary} onClick={() => changeTool('devtools')} colorClass="bg-violet-100 text-violet-500" />
-      <ToolCard title="JSON Formatter" desc="Validate & Prettify." icon={FileJson} onClick={() => changeTool('json')} colorClass="bg-amber-100 text-amber-500" />
-      <ToolCard title="YAML ↔ JSON" desc="Convert structured data." icon={Database} onClick={() => changeTool('yaml')} colorClass="bg-fuchsia-100 text-fuchsia-500" />
-      <ToolCard title="Regex Builder" desc="Visual regex construction." icon={Search} onClick={() => changeTool('regex')} colorClass="bg-pink-100 text-pink-600" />
-      <ToolCard title="UUID Generator" desc="Generate unique IDs." icon={Fingerprint} onClick={() => changeTool('uuid')} colorClass="bg-slate-100 text-slate-400" />
-      <ToolCard title="QR Generator" desc="Encode text to QR codes." icon={QrCode} onClick={() => changeTool('qr')} colorClass="bg-slate-100 text-slate-200" />
-      <ToolCard title="Color Studio" desc="Copy-ready palettes." icon={Palette} onClick={() => changeTool('color-studio')} colorClass="bg-cyan-100 text-cyan-500" />
-      <ToolCard title="Image Resizer" desc="Compress & resize locally." icon={ImageIcon} onClick={() => changeTool('image-resizer')} colorClass="bg-purple-100 text-purple-500" />
-      <ToolCard title="Age Calculator" desc="Exact age & next birthday." icon={Cake} onClick={() => changeTool('age-calc')} colorClass="bg-red-100 text-red-500" />
-      <ToolCard title="To-Do Lists" desc="Local persistent tasks." icon={CheckSquare} onClick={() => changeTool('todo')} colorClass="bg-lime-100 text-lime-500" />
-    </div>
-  </div>
-);
+  )
+};
 
 // --- TOOLS ---
 
@@ -144,7 +143,7 @@ const TextTools = ({ showToast }) => {
   const [activeTab, setActiveTab] = useState('editor'); 
   const [text, setText] = useState('');
   const [text2, setText2] = useState(''); 
-  
+   
   const stats = useMemo(() => {
     const trimmed = text.trim();
     return {
@@ -163,6 +162,7 @@ const TextTools = ({ showToast }) => {
       case 'title': newText = text.toLowerCase().replace(/(?:^|\s)\w/g, match => match.toUpperCase()); break;
       case 'dedup': newText = [...new Set(text.split('\n'))].join('\n'); break;
       case 'trim': newText = text.replace(/\s+/g, ' ').trim(); break;
+      case 'unique-words': newText = [...new Set(text.trim().split(/\s+/))].join(' '); break;
       default: break;
     }
     setText(newText);
@@ -197,9 +197,18 @@ const TextTools = ({ showToast }) => {
           {activeTab === 'editor' && (
             <div className="flex-1 flex flex-col gap-4">
                <div className="flex flex-wrap gap-2">
-                  <div className="flex bg-slate-800 rounded-lg p-1"><button onClick={() => handleTransform('upper')} className="px-3 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition">UPPER</button><button onClick={() => handleTransform('lower')} className="px-3 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition">lower</button><button onClick={() => handleTransform('title')} className="px-3 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition">Title Case</button></div>
-                  <div className="flex bg-slate-800 rounded-lg p-1"><button onClick={() => handleTransform('dedup')} className="px-3 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition">Unique Lines</button><button onClick={() => handleTransform('trim')} className="px-3 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition">Trim Space</button></div>
-                  <button onClick={() => setText('')} className="ml-auto text-slate-400 hover:text-red-400 transition"><Trash2 size={18}/></button><button onClick={() => copy(text)} className="text-slate-400 hover:text-white transition"><Copy size={18}/></button>
+                  <div className="flex bg-slate-800 rounded-lg p-1">
+                    <button onClick={() => handleTransform('upper')} className="px-3 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition">UPPER</button>
+                    <button onClick={() => handleTransform('lower')} className="px-3 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition">lower</button>
+                    <button onClick={() => handleTransform('title')} className="px-3 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition">Title Case</button>
+                  </div>
+                  <div className="flex bg-slate-800 rounded-lg p-1">
+                    <button onClick={() => handleTransform('dedup')} className="px-3 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition">Unique Lines</button>
+                    <button onClick={() => handleTransform('unique-words')} className="px-3 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition">Unique Words</button>
+                    <button onClick={() => handleTransform('trim')} className="px-3 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded transition">Trim Space</button>
+                  </div>
+                  <button onClick={() => setText('')} className="ml-auto text-slate-400 hover:text-red-400 transition"><Trash2 size={18}/></button>
+                  <button onClick={() => copy(text)} className="text-slate-400 hover:text-white transition"><Copy size={18}/></button>
                </div>
                <textarea value={text} onChange={e => setText(e.target.value)} className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-300 font-mono text-sm focus:outline-none focus:border-primary-500 resize-none" placeholder="Type or paste content here..."></textarea>
                <div className="flex gap-4 text-xs text-slate-400 bg-slate-800 p-3 rounded-lg justify-between md:justify-start"><span><strong className="text-white">{stats.words}</strong> Words</span><span><strong className="text-white">{stats.chars}</strong> Characters</span><span><strong className="text-white">{stats.noSpace}</strong> w/o Spaces</span><span><strong className="text-white">{stats.lines}</strong> Lines</span></div>
@@ -231,326 +240,6 @@ const TextTools = ({ showToast }) => {
              </div>
           )}
         </div>
-      </div>
-    </div>
-  );
-};
-
-const EmiCalculator = () => {
-  const [principal, setPrincipal] = useState(500000);
-  const [rate, setRate] = useState(10);
-  const [years, setYears] = useState(5);
-  const currency = getCurrencySymbol();
-
-  const r = rate / 12 / 100;
-  const n = years * 12;
-  
-  const emi = (principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-  const totalAmount = emi * n;
-  const totalInterest = totalAmount - principal;
-
-  const principalPct = (principal / totalAmount) * 100;
-  const interestPct = 100 - principalPct;
-
-  return (
-    <div className="animate-fade-in p-4 md:p-10 max-w-5xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6 text-white">EMI Calculator</h2>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-slate-900/50 backdrop-blur border border-slate-800 p-6 rounded-2xl space-y-6">
-           <div>
-             <label className="block text-sm text-slate-400 mb-2">Loan Amount: <span className="text-white font-mono">{currency}{principal.toLocaleString()}</span></label>
-             <input type="range" min="10000" max="10000000" step="10000" value={principal} onChange={(e) => setPrincipal(parseInt(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary-500" />
-           </div>
-           <div>
-             <label className="block text-sm text-slate-400 mb-2">Interest Rate (%): <span className="text-white font-mono">{rate}%</span></label>
-             <input type="range" min="1" max="30" step="0.1" value={rate} onChange={(e) => setRate(parseFloat(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary-500" />
-           </div>
-           <div>
-             <label className="block text-sm text-slate-400 mb-2">Tenure (Years): <span className="text-white font-mono">{years} Yr</span></label>
-             <input type="range" min="1" max="30" step="1" value={years} onChange={(e) => setYears(parseInt(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary-500" />
-           </div>
-
-           <div className="mt-8">
-             <h4 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">Breakdown</h4>
-             <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="bg-slate-800 p-4 rounded-xl">
-                  <div className="text-xs text-slate-500 mb-1">Monthly EMI</div>
-                  <div className="text-xl font-bold text-emerald-400">{currency}{Math.round(emi).toLocaleString()}</div>
-                </div>
-                <div className="bg-slate-800 p-4 rounded-xl">
-                  <div className="text-xs text-slate-500 mb-1">Total Interest</div>
-                  <div className="text-xl font-bold text-pink-500">{currency}{Math.round(totalInterest).toLocaleString()}</div>
-                </div>
-                <div className="bg-slate-800 p-4 rounded-xl">
-                  <div className="text-xs text-slate-500 mb-1">Total Payable</div>
-                  <div className="text-xl font-bold text-white">{currency}{Math.round(totalAmount).toLocaleString()}</div>
-                </div>
-             </div>
-           </div>
-        </div>
-
-        <div className="bg-slate-900/50 backdrop-blur border border-slate-800 p-6 rounded-2xl flex flex-col items-center justify-center">
-           <div className="relative w-48 h-48 rounded-full mb-6" style={{ background: `conic-gradient(#6366f1 0% ${principalPct}%, #ec4899 ${principalPct}% 100%)` }}>
-              <div className="absolute inset-4 bg-slate-900 rounded-full flex items-center justify-center flex-col">
-                 <span className="text-xs text-slate-500">Total</span>
-                 <span className="text-sm font-bold text-white">{currency}{(totalAmount/100000).toFixed(2)}L</span>
-              </div>
-           </div>
-           <div className="w-full space-y-3">
-              <div className="flex justify-between text-sm">
-                 <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-primary-500"></span> Principal</span>
-                 <span className="text-white">{Math.round(principalPct)}%</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                 <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-pink-500"></span> Interest</span>
-                 <span className="text-white">{Math.round(interestPct)}%</span>
-              </div>
-           </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const HealthCalculator = () => {
-  const [mode, setMode] = useState('bmi');
-  const [height, setHeight] = useState(170);
-  const [weight, setWeight] = useState(70);
-  const [age, setAge] = useState(25);
-  const [gender, setGender] = useState('male');
-  const [activity, setActivity] = useState(1.2);
-
-  const bmi = (weight / Math.pow(height / 100, 2)).toFixed(1);
-  let bmiStatus = 'Normal';
-  let bmiColor = 'text-emerald-400';
-  if (bmi < 18.5) { bmiStatus = 'Underweight'; bmiColor = 'text-blue-400'; }
-  else if (bmi >= 25 && bmi < 30) { bmiStatus = 'Overweight'; bmiColor = 'text-yellow-400'; }
-  else if (bmi >= 30) { bmiStatus = 'Obese'; bmiColor = 'text-red-400'; }
-
-  const bmr = gender === 'male' 
-    ? 10 * weight + 6.25 * height - 5 * age + 5 
-    : 10 * weight + 6.25 * height - 5 * age - 161;
-  
-  const tdee = Math.round(bmr * activity);
-
-  return (
-    <div className="animate-fade-in p-4 md:p-10 max-w-3xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6 text-white">Health Station</h2>
-      <div className="bg-slate-900/50 backdrop-blur border border-slate-800 p-6 rounded-2xl">
-        
-        <div className="flex gap-2 mb-6 bg-slate-800 p-1 rounded-lg w-fit">
-           <button onClick={() => setMode('bmi')} className={`px-4 py-1.5 rounded-md text-sm transition-all ${mode === 'bmi' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-white'}`}>BMI</button>
-           <button onClick={() => setMode('bmr')} className={`px-4 py-1.5 rounded-md text-sm transition-all ${mode === 'bmr' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-white'}`}>Calories (BMR)</button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-           <div className="space-y-4">
-              <div>
-                 <label className="block text-xs text-slate-400 mb-1">Height (cm)</label>
-                 <input type="number" value={height} onChange={e => setHeight(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none" />
-              </div>
-              <div>
-                 <label className="block text-xs text-slate-400 mb-1">Weight (kg)</label>
-                 <input type="number" value={weight} onChange={e => setWeight(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none" />
-              </div>
-              {mode === 'bmr' && (
-                <>
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1">Age</label>
-                    <input type="number" value={age} onChange={e => setAge(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none" />
-                  </div>
-                  <div className="flex gap-4">
-                     <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
-                        <input type="radio" name="gender" checked={gender === 'male'} onChange={() => setGender('male')} className="accent-primary-500" /> Male
-                     </label>
-                     <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
-                        <input type="radio" name="gender" checked={gender === 'female'} onChange={() => setGender('female')} className="accent-primary-500" /> Female
-                     </label>
-                  </div>
-                  <div>
-                     <label className="block text-xs text-slate-400 mb-1">Activity Level</label>
-                     <select value={activity} onChange={e => setActivity(parseFloat(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none text-sm">
-                        <option value="1.2">Sedentary (Office job)</option>
-                        <option value="1.375">Light Exercise (1-2 days)</option>
-                        <option value="1.55">Moderate Exercise (3-5 days)</option>
-                        <option value="1.725">Heavy Exercise (6-7 days)</option>
-                     </select>
-                  </div>
-                </>
-              )}
-           </div>
-
-           <div className="flex items-center justify-center bg-slate-800/50 rounded-xl p-6 border border-slate-800">
-              {mode === 'bmi' ? (
-                 <div className="text-center">
-                    <div className="text-sm text-slate-400 mb-2">Your BMI Score</div>
-                    <div className="text-5xl font-bold text-white mb-2">{bmi}</div>
-                    <div className={`text-lg font-medium ${bmiColor}`}>{bmiStatus}</div>
-                 </div>
-              ) : (
-                 <div className="text-center w-full">
-                    <div className="text-sm text-slate-400 mb-4">Daily Calorie Needs</div>
-                    <div className="text-4xl font-bold text-white mb-2">{tdee} <span className="text-lg text-slate-500 font-normal">kcal</span></div>
-                    <div className="text-xs text-slate-500">Maintenance</div>
-                    <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-700">
-                       <div>
-                          <div className="text-xs text-emerald-400">Gain Weight</div>
-                          <div className="font-bold text-white">{tdee + 500}</div>
-                       </div>
-                       <div>
-                          <div className="text-xs text-red-400">Lose Weight</div>
-                          <div className="font-bold text-white">{tdee - 500}</div>
-                       </div>
-                    </div>
-                 </div>
-              )}
-           </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const PasswordGenerator = ({ showToast }) => {
-  const [length, setLength] = useState(12);
-  const [includeUpper, setIncludeUpper] = useState(true);
-  const [includeNumbers, setIncludeNumbers] = useState(true);
-  const [includeSymbols, setIncludeSymbols] = useState(true);
-  const [password, setPassword] = useState('');
-  const [strength, setStrength] = useState(0);
-
-  const generate = () => {
-    const lower = 'abcdefghijklmnopqrstuvwxyz';
-    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const nums = '0123456789';
-    const syms = '!@#$%^&*()_+-=[]{}|;:,.<>?';
-    
-    let chars = lower;
-    if (includeUpper) chars += upper;
-    if (includeNumbers) chars += nums;
-    if (includeSymbols) chars += syms;
-
-    let pass = '';
-    for (let i = 0; i < length; i++) {
-      pass += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setPassword(pass);
-    calcStrength(pass);
-  };
-
-  const calcStrength = (pass) => {
-    let score = 0;
-    if (pass.length > 8) score++;
-    if (pass.length > 12) score++;
-    if (/[A-Z]/.test(pass)) score++;
-    if (/[0-9]/.test(pass)) score++;
-    if (/[^A-Za-z0-9]/.test(pass)) score++;
-    setStrength(score); // Max 5
-  };
-
-  useEffect(() => { generate(); }, []);
-
-  const copy = (text) => {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = 'fixed';
-    textArea.style.left = '-9999px';
-    document.body.appendChild(textArea);
-    textArea.select();
-    try { document.execCommand('copy'); showToast('Copied!'); } catch (err) { console.error(err); }
-    document.body.removeChild(textArea);
-  };
-
-  return (
-    <div className="animate-fade-in p-4 md:p-10 max-w-3xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6 text-white">Password Vault</h2>
-      <div className="bg-slate-900/50 backdrop-blur border border-slate-800 p-6 rounded-2xl space-y-6">
-         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
-            <span className="font-mono text-xl text-white break-all mr-4">{password}</span>
-            <div className="flex gap-2">
-               <button onClick={generate} className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition"><RefreshCw size={18}/></button>
-               <button onClick={() => copy(password)} className="p-2 text-primary-400 hover:text-primary-300 bg-primary-500/10 hover:bg-primary-500/20 rounded-lg transition"><Copy size={18}/></button>
-            </div>
-         </div>
-         <div className="flex gap-1 h-1.5">
-            {[...Array(5)].map((_, i) => (
-               <div key={i} className={`flex-1 rounded-full transition-colors ${i < strength ? (strength < 3 ? 'bg-red-500' : strength < 5 ? 'bg-yellow-500' : 'bg-emerald-500') : 'bg-slate-800'}`} />
-            ))}
-         </div>
-         <div className="space-y-4">
-            <div>
-               <div className="flex justify-between text-sm text-slate-400 mb-2"><span>Length</span><span>{length}</span></div>
-               <input type="range" min="6" max="32" value={length} onChange={(e) => setLength(parseInt(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary-500" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-               <label className="flex items-center gap-3 p-3 bg-slate-800 rounded-xl cursor-pointer hover:bg-slate-750 transition"><input type="checkbox" checked={includeUpper} onChange={e => setIncludeUpper(e.target.checked)} className="w-5 h-5 accent-primary-500 rounded" /><span className="text-sm text-slate-200">Uppercase (A-Z)</span></label>
-               <label className="flex items-center gap-3 p-3 bg-slate-800 rounded-xl cursor-pointer hover:bg-slate-750 transition"><input type="checkbox" checked={includeNumbers} onChange={e => setIncludeNumbers(e.target.checked)} className="w-5 h-5 accent-primary-500 rounded" /><span className="text-sm text-slate-200">Numbers (0-9)</span></label>
-               <label className="flex items-center gap-3 p-3 bg-slate-800 rounded-xl cursor-pointer hover:bg-slate-750 transition"><input type="checkbox" checked={includeSymbols} onChange={e => setIncludeSymbols(e.target.checked)} className="w-5 h-5 accent-primary-500 rounded" /><span className="text-sm text-slate-200">Symbols (!@#)</span></label>
-            </div>
-         </div>
-      </div>
-    </div>
-  );
-};
-
-const DevTools = ({ showToast }) => {
-  const [mode, setMode] = useState('base64');
-  const [input, setInput] = useState('');
-  const [output, setOutput] = useState('');
-
-  useEffect(() => {
-     const process = async () => {
-       if(!input) { setOutput(''); return; }
-       try {
-         if (mode === 'base64') {
-            setOutput(btoa(input)); 
-         } else if (mode === 'url') {
-            setOutput(encodeURIComponent(input));
-         } else if (mode === 'hash') {
-            const msgBuffer = new TextEncoder().encode(input);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            setOutput(hashHex);
-         }
-       } catch (e) {
-         setOutput('Error processing input');
-       }
-     };
-     process();
-  }, [input, mode]);
-
-  const copy = (text) => {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = 'fixed';
-    textArea.style.left = '-9999px';
-    document.body.appendChild(textArea);
-    textArea.select();
-    try { document.execCommand('copy'); showToast('Copied!'); } catch (err) { console.error(err); }
-    document.body.removeChild(textArea);
-  };
-
-  return (
-    <div className="animate-fade-in p-4 md:p-10 max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6 text-white">Dev Tools</h2>
-      <div className="bg-slate-900/50 backdrop-blur border border-slate-800 p-6 rounded-2xl">
-         <div className="flex gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
-            {['base64', 'url', 'hash'].map(m => (
-               <button key={m} onClick={() => setMode(m)} className={`px-4 py-2 rounded-lg text-sm font-medium uppercase tracking-wide transition-all whitespace-nowrap ${mode === m ? 'bg-primary-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>{m === 'hash' ? 'SHA-256' : m}</button>
-            ))}
-         </div>
-         <div className="space-y-6">
-            <div>
-               <label className="block text-xs text-slate-400 mb-2 uppercase">Input</label>
-               <textarea value={input} onChange={e => setInput(e.target.value)} className="w-full h-32 bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-mono text-sm focus:border-primary-500 outline-none resize-none" placeholder="Type or paste content here..."></textarea>
-            </div>
-            <div className="relative">
-               <label className="block text-xs text-emerald-400 mb-2 uppercase">Output</label>
-               <textarea readOnly value={output} className="w-full h-32 bg-slate-950 border border-slate-800 rounded-xl p-4 text-emerald-400 font-mono text-sm focus:outline-none resize-none"></textarea>
-               <button onClick={() => copy(output)} className="absolute top-8 right-4 p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition"><Copy size={16} /></button>
-            </div>
-         </div>
       </div>
     </div>
   );
@@ -617,6 +306,308 @@ const CalculatorTool = () => {
     </div>
   );
 };
+
+const SplitWise = () => {
+  const currency = getCurrencySymbol();
+  
+  // Persistent State Initialization
+  const [data, setData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('omni-splitwise');
+      return saved ? JSON.parse(saved) : { members: ['Alice', 'Bob'], expenses: [] };
+    } catch(e) {
+      return { members: ['Alice', 'Bob'], expenses: [] };
+    }
+  });
+
+  const { members, expenses } = data;
+  const [newMember, setNewMember] = useState('');
+  const [newExp, setNewExp] = useState({ payer: members[0] || '', amount: '', desc: '' });
+
+  useEffect(() => {
+    localStorage.setItem('omni-splitwise', JSON.stringify(data));
+  }, [data]);
+
+  useEffect(() => {
+    if (members.length > 0 && !members.includes(newExp.payer)) {
+        setNewExp(prev => ({ ...prev, payer: members[0] }));
+    }
+  }, [members, newExp.payer]);
+
+  const addMember = () => {
+    if (newMember.trim() && !members.includes(newMember.trim())) {
+      setData(prev => ({ ...prev, members: [...prev.members, newMember.trim()] }));
+      setNewMember('');
+    }
+  };
+
+  const removeMember = (member) => {
+    const isPayer = expenses.some(e => e.payer === member);
+    if (isPayer) {
+      alert(`Cannot remove ${member} because they have paid for expenses. Delete those expenses first.`);
+      return;
+    }
+    setData(prev => ({ ...prev, members: prev.members.filter(m => m !== member) }));
+  };
+
+  const addExpense = () => {
+    if (newExp.amount && newExp.desc && newExp.payer) {
+      const expense = { 
+        ...newExp, 
+        id: Date.now(), 
+        amount: parseFloat(newExp.amount), 
+        date: new Date().toISOString()
+      };
+      setData(prev => ({ ...prev, expenses: [...prev.expenses, expense] }));
+      setNewExp({ ...newExp, amount: '', desc: '' });
+    }
+  };
+
+  const removeExpense = (id) => {
+    setData(prev => ({ ...prev, expenses: prev.expenses.filter(e => e.id !== id) }));
+  };
+
+  const clearAll = () => {
+    if(window.confirm("Are you sure you want to clear all data?")) {
+        setData({ members: ['Alice', 'Bob'], expenses: [] });
+    }
+  };
+
+  const stats = useMemo(() => {
+    const balances = {};
+    members.forEach(m => balances[m] = 0);
+    let totalSpent = 0;
+
+    expenses.forEach(e => {
+      totalSpent += e.amount;
+      const splitAmount = e.amount / members.length;
+      if (balances[e.payer] !== undefined) balances[e.payer] += e.amount;
+      members.forEach(m => {
+        if (balances[m] !== undefined) balances[m] -= splitAmount;
+      });
+    });
+
+    const memberBalances = Object.entries(balances).map(([name, amount]) => ({ name, amount }));
+    
+    const debtors = memberBalances.filter(m => m.amount < -0.01).sort((a, b) => a.amount - b.amount);
+    const creditors = memberBalances.filter(m => m.amount > 0.01).sort((a, b) => b.amount - a.amount);
+
+    const transactions = [];
+    let i = 0; let j = 0;
+    
+    const dCalc = debtors.map(d => ({...d}));
+    const cCalc = creditors.map(c => ({...c}));
+
+    while (i < dCalc.length && j < cCalc.length) {
+      const debtor = dCalc[i];
+      const creditor = cCalc[j];
+      const amount = Math.min(Math.abs(debtor.amount), creditor.amount);
+      transactions.push({ from: debtor.name, to: creditor.name, amount });
+      debtor.amount += amount;
+      creditor.amount -= amount;
+      if (Math.abs(debtor.amount) < 0.01) i++;
+      if (creditor.amount < 0.01) j++;
+    }
+
+    return { totalSpent, balances: memberBalances, transactions };
+  }, [expenses, members]);
+
+  const exportData = () => {
+    const header = ["Date", "Description", "Payer", "Amount", "Currency"];
+    const rows = expenses.map(e => [
+      new Date(e.date).toLocaleDateString(),
+      `"${e.desc}"`, 
+      e.payer,
+      e.amount,
+      currency
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [header.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `splitwise_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="animate-fade-in p-4 md:p-10 max-w-6xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+            <h2 className="text-3xl font-bold text-white">SplitWise <span className="text-emerald-500">Pro</span></h2>
+            <button onClick={clearAll} className="text-xs text-red-400 hover:text-red-300 border border-red-900/50 hover:bg-red-900/20 px-3 py-1.5 rounded-lg transition">Reset All Data</button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div className="bg-slate-900 border border-slate-800/60 p-5 rounded-2xl flex flex-col justify-between shadow-lg relative overflow-hidden">
+                <div className="absolute right-0 top-0 w-20 h-20 bg-emerald-500/5 rounded-bl-full"></div>
+                <div className="flex items-center gap-2 text-emerald-400 text-xs uppercase font-bold tracking-wider mb-2"><Activity size={14}/> Total Group Spend</div>
+                <div className="text-3xl font-black text-white tracking-tight">{currency}{stats.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            </div>
+            
+            <div className="bg-slate-900 border border-slate-800/60 p-5 rounded-2xl flex flex-col justify-between shadow-lg">
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 text-blue-400 text-xs uppercase font-bold tracking-wider"><Users size={14}/> Members ({members.length})</div>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mb-3 max-h-20 overflow-y-auto custom-scrollbar">
+                    {members.map(m => (
+                        <span key={m} className="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-xs font-medium text-slate-300 group relative pr-6 transition-colors hover:border-slate-600">
+                            {m}
+                            <button onClick={() => removeMember(m)} className="absolute right-1 text-slate-500 hover:text-red-400 transition-colors"><X size={12}/></button>
+                        </span>
+                    ))}
+                </div>
+                <div className="flex items-center gap-2">
+                    <input type="text" value={newMember} onChange={e => setNewMember(e.target.value)} onKeyDown={e => e.key === 'Enter' && addMember()} className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-blue-500 transition-colors" placeholder="New member name..." />
+                    <button onClick={addMember} className="bg-blue-600 text-white p-1.5 rounded-lg hover:bg-blue-500 transition-transform active:scale-95"><Plus size={14}/></button>
+                </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800/60 p-5 rounded-2xl flex items-center justify-center shadow-lg">
+                <button onClick={exportData} className="w-full h-full flex flex-col items-center justify-center gap-3 text-slate-400 hover:text-white transition-colors group">
+                    <div className="p-3 bg-slate-800 rounded-xl group-hover:bg-slate-700 group-hover:scale-110 transition-all"><Download size={24} className="text-emerald-500"/></div>
+                    <span className="text-xs font-bold uppercase tracking-wider">Export to CSV</span>
+                </button>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+                <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800/60 shadow-xl">
+                    <h3 className="text-sm font-bold text-slate-300 mb-5 flex items-center gap-2 uppercase tracking-wider"><Receipt size={16} className="text-emerald-400"/> Add New Expense</h3>
+                    <div className="flex flex-col gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="relative group">
+                                <span className="absolute left-3 top-2.5 text-slate-500 text-[10px] font-bold uppercase tracking-wider group-focus-within:text-emerald-500 transition-colors">Description</span>
+                                <input type="text" value={newExp.desc} onChange={e => setNewExp({...newExp, desc: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-3 pr-3 pt-7 text-sm text-white outline-none focus:border-emerald-500 transition-all" placeholder="Dinner, Uber, etc." />
+                            </div>
+                            <div className="relative group">
+                                <span className="absolute left-3 top-2.5 text-slate-500 text-[10px] font-bold uppercase tracking-wider group-focus-within:text-emerald-500 transition-colors">Amount</span>
+                                <span className="absolute left-3 top-7 text-slate-400 text-sm">{currency}</span>
+                                <input type="number" value={newExp.amount} onChange={e => setNewExp({...newExp, amount: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-7 pr-3 pt-7 text-sm text-white outline-none focus:border-emerald-500 transition-all" placeholder="0.00" />
+                            </div>
+                        </div>
+                        <div className="flex gap-3 items-center bg-slate-950 p-3 rounded-xl border border-slate-800">
+                            <span className="text-xs font-bold text-slate-500 uppercase pl-1">Paid by</span>
+                            <div className="flex-1 relative">
+                                <select value={newExp.payer} onChange={e => setNewExp({...newExp, payer: e.target.value})} className="w-full appearance-none bg-transparent text-sm text-white outline-none cursor-pointer font-medium pl-2 py-1">
+                                    {members.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                                <ChevronDown size={14} className="absolute right-0 top-1.5 text-slate-500 pointer-events-none"/>
+                            </div>
+                            <button onClick={addExpense} className="bg-emerald-500 hover:bg-emerald-400 text-white px-6 py-2 rounded-lg text-sm font-bold transition-all shadow-lg shadow-emerald-500/20 active:scale-95">Add Expense</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Recent Activity</h3>
+                        <span className="text-[10px] font-medium bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">{expenses.length} records</span>
+                    </div>
+                    <div className="max-h-[400px] overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                        {expenses.length === 0 && (
+                            <div className="text-center py-12 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-900/50">
+                                <Receipt className="mx-auto text-slate-700 mb-3" size={32}/>
+                                <p className="text-slate-500 text-sm font-medium">No expenses recorded yet.</p>
+                                <p className="text-slate-600 text-xs mt-1">Add your first expense above to get started.</p>
+                            </div>
+                        )}
+                        {[...expenses].reverse().map(e => (
+                            <div key={e.id} className="group flex justify-between items-center bg-slate-900 hover:bg-slate-800 p-4 rounded-xl border border-slate-800 transition-all hover:shadow-lg hover:border-slate-700">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-slate-300 font-bold text-sm border border-slate-700 shadow-inner">{e.payer.charAt(0)}</div>
+                                    <div>
+                                        <div className="text-sm text-white font-bold">{e.desc}</div>
+                                        <div className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-2">
+                                            <span>{new Date(e.date).toLocaleDateString()}</span>
+                                            <span className="w-1 h-1 rounded-full bg-slate-600"></span>
+                                            <span className="text-emerald-400">{e.payer} paid {currency}{e.amount.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button onClick={() => removeExpense(e.id)} className="text-slate-600 hover:text-red-400 p-2 opacity-0 group-hover:opacity-100 transition-all bg-slate-800/50 rounded-lg"><Trash2 size={16}/></button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="space-y-6">
+                <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800/60 shadow-xl">
+                    <h3 className="text-sm font-bold text-slate-300 mb-6 flex items-center gap-2 uppercase tracking-wider"><BarChart size={16} className="text-blue-400"/> Net Balances</h3>
+                    <BalanceChart data={stats.balances} />
+                    <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-4 px-2 uppercase tracking-wider border-t border-slate-800 pt-3">
+                        <span className="flex items-center gap-1"><div className="w-2 h-2 bg-rose-500 rounded-full"></div> Owes</span>
+                        <span className="flex items-center gap-1"><div className="w-2 h-2 bg-emerald-500 rounded-full"></div> Gets Back</span>
+                    </div>
+                </div>
+
+                <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800/60 shadow-xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-500/5 to-transparent rounded-bl-full pointer-events-none"></div>
+                    <h3 className="text-sm font-bold text-slate-300 mb-5 flex items-center gap-2 uppercase tracking-wider"><CheckCircle size={16} className="text-emerald-400"/> Settlement Plan</h3>
+                    {stats.transactions.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-8 text-slate-500 gap-2">
+                            <CheckCircle size={32} className="text-slate-700"/>
+                            <p className="text-xs font-medium">All settled up!</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3 relative z-10">
+                            {stats.transactions.map((d, i) => (
+                                <div key={i} className="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-800/80 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xs text-white font-bold bg-slate-800 px-2 py-1 rounded-md">{d.from}</span>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-[10px] text-slate-500 font-bold uppercase">Pays</span>
+                                            <ArrowRight size={12} className="text-slate-600"/>
+                                        </div>
+                                        <span className="text-xs text-white font-bold bg-slate-800 px-2 py-1 rounded-md">{d.to}</span>
+                                    </div>
+                                    <div className="text-sm font-bold text-emerald-400">{currency}{d.amount.toFixed(2)}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    </div>
+  );
+};
+
+const Dashboard = ({ changeTool }) => (
+  <div className="animate-fade-in p-6 md:p-10 max-w-7xl mx-auto">
+    <div className="mb-10 relative">
+      <div className="absolute -left-10 -top-10 w-64 h-64 bg-primary-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <h2 className="text-4xl font-black text-white mb-3 tracking-tight">Welcome Back</h2>
+      <p className="text-slate-400 text-lg max-w-2xl">Your all-in-one developer and lifestyle utility suite. Select a tool to get started.</p>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative z-10">
+      <ToolCard title="Dev Tools" desc="Base64, Hashing, URL." icon={Binary} onClick={() => changeTool('devtools')} colorClass="bg-violet-100 text-violet-500" />
+      <ToolCard title="SplitWise" desc="Group expenses & debts." icon={Wallet} onClick={() => changeTool('splitwise')} colorClass="bg-emerald-100 text-emerald-500" />
+      <ToolCard title="Calculator" desc="Math with history." icon={Calculator} onClick={() => changeTool('calculator')} colorClass="bg-blue-100 text-blue-500" />
+      <ToolCard title="Unit Converter" desc="Length, Weight, etc." icon={ArrowRightLeft} onClick={() => changeTool('unit-converter')} colorClass="bg-indigo-100 text-indigo-500" />
+      <ToolCard title="Quick Split" desc="Simple bill splitting." icon={Receipt} onClick={() => changeTool('split-bill')} colorClass="bg-orange-100 text-orange-500" />
+      <ToolCard title="Rate Calculator" desc="Price-to-Weight calc." icon={Tag} onClick={() => changeTool('rate-calc')} colorClass="bg-pink-100 text-pink-500" />
+      <ToolCard title="Currency" desc="Live estimates." icon={Coins} onClick={() => changeTool('currency')} colorClass="bg-yellow-100 text-yellow-500" />
+      <ToolCard title="EMI Calculator" desc="Loan breakdowns." icon={Landmark} onClick={() => changeTool('emi-calc')} colorClass="bg-teal-100 text-teal-500" />
+      <ToolCard title="Health Station" desc="BMI, BMR & Calories." icon={Activity} onClick={() => changeTool('health')} colorClass="bg-rose-100 text-rose-500" />
+      <ToolCard title="Text Studio" desc="Manipulate & generate." icon={FileText} onClick={() => changeTool('text-tools')} colorClass="bg-indigo-100 text-indigo-400" />
+      <ToolCard title="Finance Suite" desc="Tax & Discounts." icon={Briefcase} onClick={() => changeTool('finance-suite')} colorClass="bg-green-100 text-green-600" />
+      <ToolCard title="Time Suite" desc="Stopwatch & Unix." icon={Clock} onClick={() => changeTool('time-suite')} colorClass="bg-sky-100 text-sky-500" />
+      <ToolCard title="Password Vault" desc="Secure generator." icon={Lock} onClick={() => changeTool('password')} colorClass="bg-indigo-100 text-indigo-500" />
+      <ToolCard title="JSON Formatter" desc="Validate & Minify." icon={FileJson} onClick={() => changeTool('json')} colorClass="bg-amber-100 text-amber-500" />
+      <ToolCard title="YAML ↔ JSON" desc="Convert formats." icon={Database} onClick={() => changeTool('yaml')} colorClass="bg-fuchsia-100 text-fuchsia-500" />
+      <ToolCard title="Regex Builder" desc="Visual construction." icon={Search} onClick={() => changeTool('regex')} colorClass="bg-pink-100 text-pink-600" />
+      <ToolCard title="UUID Gen" desc="Unique identifiers." icon={Fingerprint} onClick={() => changeTool('uuid')} colorClass="bg-slate-100 text-slate-400" />
+      <ToolCard title="QR Generator" desc="Text to QR code." icon={QrCode} onClick={() => changeTool('qr')} colorClass="bg-slate-100 text-slate-200" />
+      <ToolCard title="Color Studio" desc="Palettes & Converters." icon={Palette} onClick={() => changeTool('color-studio')} colorClass="bg-cyan-100 text-cyan-500" />
+      <ToolCard title="Image Resizer" desc="Compress & Resize." icon={ImageIcon} onClick={() => changeTool('image-resizer')} colorClass="bg-purple-100 text-purple-500" />
+      <ToolCard title="Age Calc" desc="Exact age details." icon={Cake} onClick={() => changeTool('age-calc')} colorClass="bg-red-100 text-red-500" />
+      <ToolCard title="To-Do" desc="Persistent tasks." icon={CheckSquare} onClick={() => changeTool('todo')} colorClass="bg-lime-100 text-lime-500" />
+    </div>
+  </div>
+);
 
 const UNIT_DATA = {
   length: { m: 'm', km: 'km', cm: 'cm', mm: 'mm', ft: 'ft', inch: 'in', mi: 'mi' },
@@ -737,7 +728,7 @@ const SplitBill = () => {
              </div>
           </div>
         </div>
-        <div className="bg-slate-900 rounded-xl p-6 flex flex-col justify-center space-y-6">
+        <div className="bg-slate-900 rounded-xl p-6 flex flex-col justify-center space-y-6 border border-slate-800">
            <div className="flex justify-between items-center pb-4 border-b border-slate-800"><span className="text-slate-400">Total Tip</span><span className="text-xl font-semibold text-emerald-400">{currency}{tipAmount.toFixed(2)}</span></div>
            <div className="flex justify-between items-center pb-4 border-b border-slate-800"><span className="text-slate-400">Total + Tip</span><span className="text-xl font-semibold text-white">{currency}{totalWithTip.toFixed(2)}</span></div>
            <div className="flex justify-between items-center pt-2"><div className="flex flex-col"><span className="text-slate-400 text-sm">Per Person</span><span className="text-xs text-slate-500">Bill + Tip</span></div><span className="text-4xl font-bold text-primary-400">{currency}{perPerson.toFixed(2)}</span></div>
@@ -905,14 +896,14 @@ const ColorStudio = ({ showToast }) => {
   };
 
   const PaletteBlock = ({ index }) => {
-     const rgbVal = hexToRgb(color);
-     const rgba = rgbVal ? `rgba(${rgbVal.r}, ${rgbVal.g}, ${rgbVal.b}, ${(index * 0.2).toFixed(1)})` : color;
-     return (
-       <div onClick={() => copy(rgba)} className="flex-1 h-full cursor-pointer hover:flex-[1.5] transition-all flex items-end justify-center pb-2 group relative" style={{ backgroundColor: color, opacity: index * 0.2 }}>
-         <span className="text-[10px] bg-black/50 text-white px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-8">Copy</span>
-         <span className="text-[10px] bg-black/50 text-white px-1 rounded">{Math.round(index*20)}%</span>
-       </div>
-     );
+      const rgbVal = hexToRgb(color);
+      const rgba = rgbVal ? `rgba(${rgbVal.r}, ${rgbVal.g}, ${rgbVal.b}, ${(index * 0.2).toFixed(1)})` : color;
+      return (
+        <div onClick={() => copy(rgba)} className="flex-1 h-full cursor-pointer hover:flex-[1.5] transition-all flex items-end justify-center pb-2 group relative" style={{ backgroundColor: color, opacity: index * 0.2 }}>
+          <span className="text-[10px] bg-black/50 text-white px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-8">Copy</span>
+          <span className="text-[10px] bg-black/50 text-white px-1 rounded">{Math.round(index*20)}%</span>
+        </div>
+      );
   };
 
   return (
@@ -1102,9 +1093,9 @@ const JsonNode = ({ name, value, depth = 0, isLast }) => {
         </div>
         {expanded && (
           <div className="border-l border-slate-800 ml-2.5">
-             {Object.entries(value).map(([key, val], idx, arr) => (
-                <JsonNode key={key} name={isArray ? null : key} value={val} depth={depth + 1} isLast={idx === arr.length - 1} />
-             ))}
+              {Object.entries(value).map(([key, val], idx, arr) => (
+                 <JsonNode key={key} name={isArray ? null : key} value={val} depth={depth + 1} isLast={idx === arr.length - 1} />
+              ))}
           </div>
         )}
         <div className="pl-6"><span className={bracketClass}>{close}</span>{!isLast && ','}</div>
@@ -1190,7 +1181,7 @@ const JsonFormatter = ({ showToast }) => {
 const QrGenerator = () => {
   const [text, setText] = useState('https://example.com');
   const [size, setSize] = useState(200);
-  
+   
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&bgcolor=ffffff&color=000000&margin=10`;
 
   return (
@@ -1322,7 +1313,7 @@ const UuidGenerator = ({ showToast }) => {
 const RegexBuilder = () => {
   const [parts, setParts] = useState([]);
   const [testString, setTestString] = useState('');
-  
+   
   const addPart = (type) => setParts([...parts, { type, value: '' }]);
   const removePart = (index) => { const newParts = [...parts]; newParts.splice(index, 1); setParts(newParts); };
   const updatePart = (index, val) => { const newParts = [...parts]; newParts[index].value = val; setParts(newParts); };
@@ -1429,19 +1420,95 @@ const FinanceSuite = () => {
   const [t, setT] = useState(5);
   const si = (p*r*t)/100;
   const ci = p * (Math.pow((1 + r/100), t)) - p;
+  
+  // Tax Logic
   const [salary, setSalary] = useState(1200000);
-  const calcTax = () => {
-    if (salary <= 300000) return 0;
-    let taxable = salary - 75000; 
-    if (taxable <= 700000) return 0; 
+  const [regime, setRegime] = useState('new'); // 'new' or 'old'
+  const [deductions, setDeductions] = useState(0); // 80C etc for Old
+
+  const calculateTax = () => {
+    const stdDed = regime === 'new' ? 75000 : 50000;
+    let taxable = Math.max(0, salary - stdDed - (regime === 'old' ? deductions : 0));
+    
     let tax = 0;
-    if (taxable > 300000) tax += Math.min(taxable - 300000, 400000) * 0.05; 
-    if (taxable > 700000) tax += Math.min(taxable - 700000, 300000) * 0.10; 
-    if (taxable > 1000000) tax += Math.min(taxable - 1000000, 200000) * 0.15; 
-    if (taxable > 1200000) tax += Math.min(taxable - 1200000, 300000) * 0.20; 
-    if (taxable > 1500000) tax += (taxable - 1500000) * 0.30;
-    return tax * 1.04; 
+    const breakdown = [];
+
+    if (regime === 'new') {
+      // New Regime FY 24-25
+      if (taxable <= 300000) {
+         breakdown.push({ range: '0 - 3L', rate: '0%', amt: 0 });
+      } else {
+         breakdown.push({ range: '0 - 3L', rate: '0%', amt: 0 });
+         
+         if (taxable > 300000) {
+            const slab = Math.min(taxable, 700000) - 300000;
+            const t = slab * 0.05;
+            tax += t;
+            breakdown.push({ range: '3L - 7L', rate: '5%', amt: t });
+         }
+         if (taxable > 700000) {
+            const slab = Math.min(taxable, 1000000) - 700000;
+            const t = slab * 0.10;
+            tax += t;
+            breakdown.push({ range: '7L - 10L', rate: '10%', amt: t });
+         }
+         if (taxable > 1000000) {
+            const slab = Math.min(taxable, 1200000) - 1000000;
+            const t = slab * 0.15;
+            tax += t;
+            breakdown.push({ range: '10L - 12L', rate: '15%', amt: t });
+         }
+         if (taxable > 1200000) {
+            const slab = Math.min(taxable, 1500000) - 1200000;
+            const t = slab * 0.20;
+            tax += t;
+            breakdown.push({ range: '12L - 15L', rate: '20%', amt: t });
+         }
+         if (taxable > 1500000) {
+            const slab = taxable - 1500000;
+            const t = slab * 0.30;
+            tax += t;
+            breakdown.push({ range: '> 15L', rate: '30%', amt: t });
+         }
+      }
+      // Rebate 87A for New Regime (Income up to 7L)
+      if (taxable <= 700000) tax = 0;
+
+    } else {
+      // Old Regime (Approx)
+      if (taxable <= 250000) {
+         breakdown.push({ range: '0 - 2.5L', rate: '0%', amt: 0 });
+      } else {
+         breakdown.push({ range: '0 - 2.5L', rate: '0%', amt: 0 });
+         
+         if (taxable > 250000) {
+            const slab = Math.min(taxable, 500000) - 250000;
+            const t = slab * 0.05;
+            tax += t;
+            breakdown.push({ range: '2.5L - 5L', rate: '5%', amt: t });
+         }
+         if (taxable > 500000) {
+            const slab = Math.min(taxable, 1000000) - 500000;
+            const t = slab * 0.20;
+            tax += t;
+            breakdown.push({ range: '5L - 10L', rate: '20%', amt: t });
+         }
+         if (taxable > 1000000) {
+            const slab = taxable - 1000000;
+            const t = slab * 0.30;
+            tax += t;
+            breakdown.push({ range: '> 10L', rate: '30%', amt: t });
+         }
+      }
+      // Rebate 87A for Old Regime (Income up to 5L)
+      if (taxable <= 500000) tax = 0;
+    }
+
+    const cess = tax * 0.04;
+    return { tax, cess, total: tax + cess, breakdown, taxable };
   };
+
+  const taxResult = calculateTax();
 
   return (
     <div className="animate-fade-in p-4 md:p-10 max-w-4xl mx-auto">
@@ -1454,7 +1521,390 @@ const FinanceSuite = () => {
             {tab === 'gst' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div className="space-y-4"><div><label className="block text-xs text-slate-400 mb-1">Amount</label><input type="number" value={gstPrice} onChange={e => setGstPrice(parseFloat(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none" /></div><div><label className="block text-xs text-slate-400 mb-1">GST %</label><input type="number" value={gstRate} onChange={e => setGstRate(parseFloat(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none" /></div></div><div className="space-y-4"><div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between"><span>GST Amount</span><span className="font-bold text-white">{currency}{gstAmt.toFixed(2)}</span></div><div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between"><span>Total</span><span className="font-bold text-emerald-400 text-xl">{currency}{(gstPrice + gstAmt).toFixed(2)}</span></div></div></div>)}
             {tab === 'discount' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div className="space-y-4"><div><label className="block text-xs text-slate-400 mb-1">Price</label><input type="number" value={discPrice} onChange={e => setDiscPrice(parseFloat(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none" /></div><div><label className="block text-xs text-slate-400 mb-1">Discount %</label><input type="number" value={discRate} onChange={e => setDiscRate(parseFloat(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none" /></div></div><div className="space-y-4"><div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between"><span>You Save</span><span className="font-bold text-emerald-400">{currency}{discAmt.toFixed(2)}</span></div><div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between"><span>Payable</span><span className="font-bold text-white text-xl">{currency}{(discPrice - discAmt).toFixed(2)}</span></div></div></div>)}
             {tab === 'interest' && (<div className="space-y-6"><div className="grid grid-cols-3 gap-4"><div><label className="block text-xs text-slate-400 mb-1">Principal</label><input type="number" value={p} onChange={e => setP(parseFloat(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none" /></div><div><label className="block text-xs text-slate-400 mb-1">Rate (%)</label><input type="number" value={r} onChange={e => setR(parseFloat(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none" /></div><div><label className="block text-xs text-slate-400 mb-1">Time (Yrs)</label><input type="number" value={t} onChange={e => setT(parseFloat(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none" /></div></div><div className="grid grid-cols-2 gap-6"><div className="bg-slate-950 p-4 rounded-xl border border-slate-800"><div className="text-xs text-slate-500 mb-1">Simple Interest</div><div className="text-2xl font-bold text-white">{currency}{si.toFixed(0)}</div><div className="text-xs text-slate-500 mt-1">Total: {currency}{(p+si).toFixed(0)}</div></div><div className="bg-slate-950 p-4 rounded-xl border border-slate-800"><div className="text-xs text-slate-500 mb-1">Compound Interest</div><div className="text-2xl font-bold text-emerald-400">{currency}{ci.toFixed(0)}</div><div className="text-xs text-slate-500 mt-1">Total: {currency}{(p+ci).toFixed(0)}</div></div></div></div>)}
-            {tab === 'tax' && (<div className="max-w-md mx-auto"><label className="block text-xs text-slate-400 mb-1">Annual Salary</label><input type="number" value={salary} onChange={e => setSalary(parseFloat(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white outline-none mb-6" /><div className="bg-slate-950 p-6 rounded-xl border border-slate-800 space-y-4"><div className="flex justify-between"><span>Est. Tax (New Regime)</span><span className="font-bold text-white">{currency}{Math.round(calcTax()).toLocaleString()}</span></div><div className="flex justify-between text-sm text-slate-500"><span>Monthly In-hand</span><span>{currency}{Math.round((salary - calcTax())/12).toLocaleString()}</span></div></div><p className="text-xs text-slate-500 mt-4 text-center">Based on FY 2024-25 New Tax Regime proposed slabs + Std Deduction.</p></div>)}
+            {tab === 'tax' && (
+               <div className="max-w-xl mx-auto space-y-6">
+                  <div className="flex bg-slate-800 p-1 rounded-lg mb-6">
+                     <button onClick={() => setRegime('new')} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${regime === 'new' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-white'}`}>New Regime (FY24-25)</button>
+                     <button onClick={() => setRegime('old')} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${regime === 'old' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-white'}`}>Old Regime</button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <div>
+                        <label className="block text-xs text-slate-400 mb-1">Annual Gross Salary</label>
+                        <input type="number" value={salary} onChange={e => setSalary(parseFloat(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white outline-none" />
+                     </div>
+                     {regime === 'old' && (
+                        <div>
+                           <label className="block text-xs text-slate-400 mb-1">Total Deductions (80C, etc.)</label>
+                           <input type="number" value={deductions} onChange={e => setDeductions(parseFloat(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white outline-none" />
+                        </div>
+                     )}
+                  </div>
+
+                  <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 space-y-4">
+                     <div className="flex justify-between text-sm text-slate-400 pb-2 border-b border-slate-800">
+                        <span>Taxable Income (after Std Ded)</span>
+                        <span className="text-white font-mono">{currency}{Math.round(taxResult.taxable).toLocaleString()}</span>
+                     </div>
+                     <div className="space-y-2">
+                        <p className="text-xs font-bold text-slate-500 uppercase">Tax Breakdown</p>
+                        {taxResult.breakdown.map((item, i) => (
+                           <div key={i} className="flex justify-between text-xs">
+                              <span className="text-slate-400">{item.range} <span className="text-slate-600">(@{item.rate})</span></span>
+                              <span className="text-slate-300">{currency}{Math.round(item.amt).toLocaleString()}</span>
+                           </div>
+                        ))}
+                     </div>
+                     <div className="pt-4 border-t border-slate-800 flex justify-between items-end">
+                        <div className="text-xs text-slate-500">Includes 4% Cess</div>
+                        <div className="text-right">
+                           <div className="text-xs text-slate-400 mb-1">Total Annual Tax</div>
+                           <div className="text-2xl font-bold text-white">{currency}{Math.round(taxResult.total).toLocaleString()}</div>
+                        </div>
+                     </div>
+                  </div>
+                  <p className="text-xs text-slate-500 text-center mt-4">
+                     * Estimates based on general slabs. Surcharge not included.
+                  </p>
+               </div>
+            )}
+         </div>
+      </div>
+    </div>
+  );
+};
+
+const EmiCalculator = () => {
+  const [principal, setPrincipal] = useState(500000);
+  const [rate, setRate] = useState(10);
+  const [years, setYears] = useState(5);
+  const currency = getCurrencySymbol();
+
+  const r = rate / 12 / 100;
+  const n = years * 12;
+   
+  const emi = (principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+  const totalAmount = emi * n;
+  const totalInterest = totalAmount - principal;
+
+  const principalPct = (principal / totalAmount) * 100;
+  const interestPct = 100 - principalPct;
+
+  return (
+    <div className="animate-fade-in p-4 md:p-10 max-w-5xl mx-auto">
+      <h2 className="text-2xl font-bold mb-6 text-white">EMI Calculator</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-slate-900/50 backdrop-blur border border-slate-800 p-6 rounded-2xl space-y-6">
+           <div>
+             <label className="block text-sm text-slate-400 mb-2">Loan Amount: <span className="text-white font-mono">{currency}{principal.toLocaleString()}</span></label>
+             <input type="range" min="10000" max="10000000" step="10000" value={principal} onChange={(e) => setPrincipal(parseInt(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary-500" />
+           </div>
+           <div>
+             <label className="block text-sm text-slate-400 mb-2">Interest Rate (%): <span className="text-white font-mono">{rate}%</span></label>
+             <input type="range" min="1" max="30" step="0.1" value={rate} onChange={(e) => setRate(parseFloat(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary-500" />
+           </div>
+           <div>
+             <label className="block text-sm text-slate-400 mb-2">Tenure (Years): <span className="text-white font-mono">{years} Yr</span></label>
+             <input type="range" min="1" max="30" step="1" value={years} onChange={(e) => setYears(parseInt(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary-500" />
+           </div>
+
+           <div className="mt-8">
+             <h4 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">Breakdown</h4>
+             <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="bg-slate-800 p-4 rounded-xl">
+                  <div className="text-xs text-slate-500 mb-1">Monthly EMI</div>
+                  <div className="text-xl font-bold text-emerald-400">{currency}{Math.round(emi).toLocaleString()}</div>
+                </div>
+                <div className="bg-slate-800 p-4 rounded-xl">
+                  <div className="text-xs text-slate-500 mb-1">Total Interest</div>
+                  <div className="text-xl font-bold text-pink-500">{currency}{Math.round(totalInterest).toLocaleString()}</div>
+                </div>
+                <div className="bg-slate-800 p-4 rounded-xl">
+                  <div className="text-xs text-slate-500 mb-1">Total Payable</div>
+                  <div className="text-xl font-bold text-white">{currency}{Math.round(totalAmount).toLocaleString()}</div>
+                </div>
+             </div>
+           </div>
+        </div>
+
+        <div className="bg-slate-900/50 backdrop-blur border border-slate-800 p-6 rounded-2xl flex flex-col items-center justify-center">
+           <div className="relative w-48 h-48 rounded-full mb-6" style={{ background: `conic-gradient(#6366f1 0% ${principalPct}%, #ec4899 ${principalPct}% 100%)` }}>
+              <div className="absolute inset-4 bg-slate-900 rounded-full flex items-center justify-center flex-col">
+                 <span className="text-xs text-slate-500">Total</span>
+                 <span className="text-sm font-bold text-white">{currency}{(totalAmount/100000).toFixed(2)}L</span>
+              </div>
+           </div>
+           <div className="w-full space-y-3">
+              <div className="flex justify-between text-sm">
+                 <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-primary-500"></span> Principal</span>
+                 <span className="text-white">{Math.round(principalPct)}%</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                 <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-pink-500"></span> Interest</span>
+                 <span className="text-white">{Math.round(interestPct)}%</span>
+              </div>
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const HealthCalculator = () => {
+  const [mode, setMode] = useState('bmi');
+  const [height, setHeight] = useState(170);
+  const [weight, setWeight] = useState(70);
+  const [age, setAge] = useState(25);
+  const [gender, setGender] = useState('male');
+  const [activity, setActivity] = useState(1.2);
+
+  const bmi = (weight / Math.pow(height / 100, 2)).toFixed(1);
+  let bmiStatus = 'Normal';
+  let bmiColor = 'text-emerald-400';
+  if (bmi < 18.5) { bmiStatus = 'Underweight'; bmiColor = 'text-blue-400'; }
+  else if (bmi >= 25 && bmi < 30) { bmiStatus = 'Overweight'; bmiColor = 'text-yellow-400'; }
+  else if (bmi >= 30) { bmiStatus = 'Obese'; bmiColor = 'text-red-400'; }
+
+  const bmr = gender === 'male' 
+    ? 10 * weight + 6.25 * height - 5 * age + 5 
+    : 10 * weight + 6.25 * height - 5 * age - 161;
+   
+  const tdee = Math.round(bmr * activity);
+
+  return (
+    <div className="animate-fade-in p-4 md:p-10 max-w-3xl mx-auto">
+      <h2 className="text-2xl font-bold mb-6 text-white">Health Station</h2>
+      <div className="bg-slate-900/50 backdrop-blur border border-slate-800 p-6 rounded-2xl">
+        
+        <div className="flex gap-2 mb-6 bg-slate-800 p-1 rounded-lg w-fit">
+           <button onClick={() => setMode('bmi')} className={`px-4 py-1.5 rounded-md text-sm transition-all ${mode === 'bmi' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-white'}`}>BMI</button>
+           <button onClick={() => setMode('bmr')} className={`px-4 py-1.5 rounded-md text-sm transition-all ${mode === 'bmr' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-white'}`}>Calories (BMR)</button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+           <div className="space-y-4">
+              <div>
+                 <label className="block text-xs text-slate-400 mb-1">Height (cm)</label>
+                 <input type="number" value={height} onChange={e => setHeight(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none" />
+              </div>
+              <div>
+                 <label className="block text-xs text-slate-400 mb-1">Weight (kg)</label>
+                 <input type="number" value={weight} onChange={e => setWeight(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none" />
+              </div>
+              {mode === 'bmr' && (
+                <>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">Age</label>
+                    <input type="number" value={age} onChange={e => setAge(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none" />
+                  </div>
+                  <div className="flex gap-4">
+                     <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
+                        <input type="radio" name="gender" checked={gender === 'male'} onChange={() => setGender('male')} className="accent-primary-500" /> Male
+                     </label>
+                     <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
+                        <input type="radio" name="gender" checked={gender === 'female'} onChange={() => setGender('female')} className="accent-primary-500" /> Female
+                     </label>
+                  </div>
+                  <div>
+                     <label className="block text-xs text-slate-400 mb-1">Activity Level</label>
+                     <select value={activity} onChange={e => setActivity(parseFloat(e.target.value))} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none text-sm">
+                        <option value="1.2">Sedentary (Office job)</option>
+                        <option value="1.375">Light Exercise (1-2 days)</option>
+                        <option value="1.55">Moderate Exercise (3-5 days)</option>
+                        <option value="1.725">Heavy Exercise (6-7 days)</option>
+                     </select>
+                  </div>
+                </>
+              )}
+           </div>
+
+           <div className="flex items-center justify-center bg-slate-800/50 rounded-xl p-6 border border-slate-800">
+              {mode === 'bmi' ? (
+                 <div className="text-center">
+                    <div className="text-sm text-slate-400 mb-2">Your BMI Score</div>
+                    <div className="text-5xl font-bold text-white mb-2">{bmi}</div>
+                    <div className={`text-lg font-medium ${bmiColor}`}>{bmiStatus}</div>
+                 </div>
+              ) : (
+                 <div className="text-center w-full">
+                    <div className="text-sm text-slate-400 mb-4">Daily Calorie Needs</div>
+                    <div className="text-4xl font-bold text-white mb-2">{tdee} <span className="text-lg text-slate-500 font-normal">kcal</span></div>
+                    <div className="text-xs text-slate-500">Maintenance</div>
+                    <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-700">
+                       <div>
+                          <div className="text-xs text-emerald-400">Gain Weight</div>
+                          <div className="font-bold text-white">{tdee + 500}</div>
+                       </div>
+                       <div>
+                          <div className="text-xs text-red-400">Lose Weight</div>
+                          <div className="font-bold text-white">{tdee - 500}</div>
+                       </div>
+                    </div>
+                 </div>
+              )}
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PasswordGenerator = ({ showToast }) => {
+  const [length, setLength] = useState(12);
+  const [includeUpper, setIncludeUpper] = useState(true);
+  const [includeNumbers, setIncludeNumbers] = useState(true);
+  const [includeSymbols, setIncludeSymbols] = useState(true);
+  const [password, setPassword] = useState('');
+  const [strength, setStrength] = useState(0);
+
+  const generate = () => {
+    const lower = 'abcdefghijklmnopqrstuvwxyz';
+    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const nums = '0123456789';
+    const syms = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+     
+    let chars = lower;
+    if (includeUpper) chars += upper;
+    if (includeNumbers) chars += nums;
+    if (includeSymbols) chars += syms;
+
+    let pass = '';
+    for (let i = 0; i < length; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setPassword(pass);
+    calcStrength(pass);
+  };
+
+  const calcStrength = (pass) => {
+    let score = 0;
+    if (pass.length > 8) score++;
+    if (pass.length > 12) score++;
+    if (/[A-Z]/.test(pass)) score++;
+    if (/[0-9]/.test(pass)) score++;
+    if (/[^A-Za-z0-9]/.test(pass)) score++;
+    setStrength(score); // Max 5
+  };
+
+  useEffect(() => { generate(); }, []);
+
+  const copy = (text) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try { document.execCommand('copy'); showToast('Copied!'); } catch (err) { console.error(err); }
+    document.body.removeChild(textArea);
+  };
+
+  return (
+    <div className="animate-fade-in p-4 md:p-10 max-w-3xl mx-auto">
+      <h2 className="text-2xl font-bold mb-6 text-white">Password Vault</h2>
+      <div className="bg-slate-900/50 backdrop-blur border border-slate-800 p-6 rounded-2xl space-y-6">
+         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+            <span className="font-mono text-xl text-white break-all mr-4">{password}</span>
+            <div className="flex gap-2">
+               <button onClick={generate} className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition"><RefreshCw size={18}/></button>
+               <button onClick={() => copy(password)} className="p-2 text-primary-400 hover:text-primary-300 bg-primary-500/10 hover:bg-primary-500/20 rounded-lg transition"><Copy size={18}/></button>
+            </div>
+         </div>
+         <div className="flex gap-1 h-1.5">
+            {[...Array(5)].map((_, i) => (
+               <div key={i} className={`flex-1 rounded-full transition-colors ${i < strength ? (strength < 3 ? 'bg-red-500' : strength < 5 ? 'bg-yellow-500' : 'bg-emerald-500') : 'bg-slate-800'}`} />
+            ))}
+         </div>
+         <div className="space-y-4">
+            <div>
+               <div className="flex justify-between text-sm text-slate-400 mb-2"><span>Length</span><span>{length}</span></div>
+               <input type="range" min="6" max="32" value={length} onChange={(e) => setLength(parseInt(e.target.value))} className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary-500" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+               <label className="flex items-center gap-3 p-3 bg-slate-800 rounded-xl cursor-pointer hover:bg-slate-750 transition"><input type="checkbox" checked={includeUpper} onChange={e => setIncludeUpper(e.target.checked)} className="w-5 h-5 accent-primary-500 rounded" /><span className="text-sm text-slate-200">Uppercase (A-Z)</span></label>
+               <label className="flex items-center gap-3 p-3 bg-slate-800 rounded-xl cursor-pointer hover:bg-slate-750 transition"><input type="checkbox" checked={includeNumbers} onChange={e => setIncludeNumbers(e.target.checked)} className="w-5 h-5 accent-primary-500 rounded" /><span className="text-sm text-slate-200">Numbers (0-9)</span></label>
+               <label className="flex items-center gap-3 p-3 bg-slate-800 rounded-xl cursor-pointer hover:bg-slate-750 transition"><input type="checkbox" checked={includeSymbols} onChange={e => setIncludeSymbols(e.target.checked)} className="w-5 h-5 accent-primary-500 rounded" /><span className="text-sm text-slate-200">Symbols (!@#)</span></label>
+            </div>
+         </div>
+      </div>
+    </div>
+  );
+};
+
+const DevTools = ({ showToast }) => {
+  const [mode, setMode] = useState('base64');
+  const [base64Mode, setBase64Mode] = useState('encode');
+  const [input, setInput] = useState('');
+  const [output, setOutput] = useState('');
+
+  useEffect(() => {
+     const process = async () => {
+       if(!input) { setOutput(''); return; }
+       try {
+         if (mode === 'base64') {
+           if (base64Mode === 'encode') {
+             setOutput(btoa(input)); 
+           } else {
+             try {
+                setOutput(atob(input));
+             } catch (e) {
+                setOutput('Invalid Base64 string');
+             }
+           }
+         } else if (mode === 'url') {
+           setOutput(encodeURIComponent(input));
+         } else if (mode === 'hash') {
+           const msgBuffer = new TextEncoder().encode(input);
+           const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+           const hashArray = Array.from(new Uint8Array(hashBuffer));
+           const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+           setOutput(hashHex);
+         }
+       } catch (e) {
+         setOutput('Error processing input');
+       }
+     };
+     process();
+  }, [input, mode, base64Mode]);
+
+  const copy = (text) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try { document.execCommand('copy'); showToast('Copied!'); } catch (err) { console.error(err); }
+    document.body.removeChild(textArea);
+  };
+
+  return (
+    <div className="animate-fade-in p-4 md:p-10 max-w-4xl mx-auto">
+      <h2 className="text-2xl font-bold mb-6 text-white">Dev Tools</h2>
+      <div className="bg-slate-900/50 backdrop-blur border border-slate-800 p-6 rounded-2xl">
+         <div className="flex gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
+            {['base64', 'url', 'hash'].map(m => (
+               <button key={m} onClick={() => setMode(m)} className={`px-4 py-2 rounded-lg text-sm font-medium uppercase tracking-wide transition-all whitespace-nowrap ${mode === m ? 'bg-primary-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>{m === 'hash' ? 'SHA-256' : m}</button>
+            ))}
+         </div>
+         <div className="space-y-6">
+            <div>
+               <div className="flex justify-between items-center mb-2">
+                 <label className="block text-xs text-slate-400 uppercase">Input</label>
+                 {mode === 'base64' && (
+                    <div className="flex bg-slate-800 rounded p-0.5">
+                       <button onClick={() => setBase64Mode('encode')} className={`px-3 py-0.5 text-xs rounded transition-colors ${base64Mode === 'encode' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-white'}`}>Encode</button>
+                       <button onClick={() => setBase64Mode('decode')} className={`px-3 py-0.5 text-xs rounded transition-colors ${base64Mode === 'decode' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-white'}`}>Decode</button>
+                    </div>
+                 )}
+               </div>
+               <textarea value={input} onChange={e => setInput(e.target.value)} className="w-full h-32 bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-mono text-sm focus:border-primary-500 outline-none resize-none" placeholder="Type or paste content here..."></textarea>
+            </div>
+            <div className="relative">
+               <label className="block text-xs text-emerald-400 mb-2 uppercase">Output</label>
+               <textarea readOnly value={output} className="w-full h-32 bg-slate-950 border border-slate-800 rounded-xl p-4 text-emerald-400 font-mono text-sm focus:outline-none resize-none"></textarea>
+               <button onClick={() => copy(output)} className="absolute top-8 right-4 p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition"><Copy size={16} /></button>
+            </div>
          </div>
       </div>
     </div>
@@ -1475,13 +1925,14 @@ export default function App() {
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Gauge, group: 'main' },
+    { id: 'splitwise', label: 'SplitWise', icon: Wallet, group: 'main' },
     { id: 'calculator', label: 'Calculator', icon: Calculator, group: 'util' },
     { id: 'unit-converter', label: 'Unit Converter', icon: ArrowRightLeft, group: 'util' },
     { id: 'currency', label: 'Currency', icon: Coins, group: 'util' },
     { id: 'time-suite', label: 'Time Suite', icon: Clock, group: 'util' },
     { id: 'text-tools', label: 'Text Studio', icon: FileText, group: 'util' },
     { id: 'finance-suite', label: 'Finance', icon: Briefcase, group: 'util' },
-    { id: 'split-bill', label: 'Split Bill', icon: Receipt, group: 'life' },
+    { id: 'split-bill', label: 'Quick Split', icon: Receipt, group: 'life' },
     { id: 'rate-calc', label: 'Rate Calc', icon: Tag, group: 'life' },
     { id: 'emi-calc', label: 'EMI Calc', icon: Landmark, group: 'life' },
     { id: 'health', label: 'Health', icon: Activity, group: 'life' },
@@ -1501,6 +1952,7 @@ export default function App() {
   const renderTool = () => {
     switch (activeTool) {
       case 'dashboard': return <Dashboard changeTool={setActiveTool} />;
+      case 'splitwise': return <SplitWise />;
       case 'text-tools': return <TextTools showToast={showToast} />;
       case 'calculator': return <CalculatorTool />;
       case 'unit-converter': return <UnitConverter />;
@@ -1542,7 +1994,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100 font-sans selection:bg-primary-500 selection:text-white overflow-hidden">
-      
+       
       {/* Toast */}
       <Toast message={toast.msg} show={toast.show} onClose={() => setToast({ ...toast, show: false })} />
 
@@ -1557,10 +2009,11 @@ export default function App() {
 
         <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1 custom-scrollbar">
           <NavButton item={menuItems[0]} />
-          
+          <NavButton item={menuItems[1]} /> {/* SplitWise in main section */}
+           
           <div className="pt-4 pb-2 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">Utilities <div className="h-px bg-slate-800 flex-1"/></div>
           {menuItems.filter(i => i.group === 'util').map(item => <NavButton key={item.id} item={item} />)}
-          
+           
           <div className="pt-4 pb-2 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">Life & Health <div className="h-px bg-slate-800 flex-1"/></div>
           {menuItems.filter(i => i.group === 'life').map(item => <NavButton key={item.id} item={item} />)}
 
