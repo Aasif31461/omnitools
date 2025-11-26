@@ -1,84 +1,96 @@
-# OmniTools — All-in-one Utility Web App
+# 🛠️ OmniTools
 
-OmniTools is a lightweight, fast, dark-themed React web application that provides dozens of useful tools for developers and everyday users.  
-Everything runs client-side — fast, private, and no login required.
+> **The Ultimate All-in-One Utility Suite for Developers & Everyone.**  
+> Fast, Private, Client-Side. No Login Required.
+
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![License](https://img.shields.io/badge/License-Non--Commercial-red?style=for-the-badge)
 
 ---
 
-## 🚀 Features
-OmniTools includes:
+## 🚀 Overview
 
-### 🧮 General Tools
-- Calculator (with history)
-- Unit converter (length, weight, temp, data)
-- Currency converter (manual rates)
-- Price-per-weight calculator
-- Age calculator
-- Timer, Stopwatch, Countdown
-- To-do list (localStorage backed)
+**OmniTools** is a powerful, dark-themed web application that bundles dozens of essential tools into one beautiful interface. Whether you're a developer needing to debug JSON, a designer picking colors, or just need to split a bill, OmniTools has you covered.
 
-### 🧾 Text & Content Tools
-- Case converter (UPPER, lower, Title Case)
-- Remove duplicate lines
-- Remove extra spaces
-- Word & character counter
-- Text diff checker
-- Random text generator
-- Lorem Ipsum generator
+![Dashboard](screenshots/dashboard.png)
+
+---
+
+## ✨ Key Features
+
+### 🧮 Core Utilities
+Everything you need for daily calculations.
+
+- **Currency Converter**: Real-time rates (API-driven) with support for 160+ currencies.
+- **Unit Converter**: Comprehensive converter with a built-in **Formulas & Constants** reference.
+- **Calculator**: Scientific calculator with history tape.
+
+| Currency Converter | Formulas Reference |
+|:---:|:---:|
+| ![Currency](screenshots/currency.png) | ![Formulas](screenshots/formulas.png) |
 
 ### 👨‍💻 Developer Tools
-- JSON formatter + tree view
-- YAML ↔ JSON converter (`js-yaml`)
-- Base64 encoder/decoder
-- URL encoder/decoder
-- SHA-256 hash generator
-- UUID generator
-- Regex builder
-- Cron expression helper
+Built by developers, for developers.
 
-### 🎨 Design Tools
-- Color picker
-- Palette generator
-- CSS gradient generator (optional)
-- Box-shadow generator (optional)
+- **DevTools**: Base64 Encoder/Decoder, URL Encoder, Hash Generator (SHA/MD5).
+- **Formatters**: JSON Formatter/Validator, YAML Converter.
+- **Regex Builder**: Visual builder for regular expressions.
+- **UUID & QR**: Generate UUIDs and QR codes instantly.
 
-### 🖼️ Image Tools
-- Image resizer (client-side `<canvas>`)
-- Image compressor
-- PNG ⇄ JPG ⇄ WebP converter
-- Favicon generator (optional)
-- Avatar maker (optional)
+![DevTools](screenshots/devtools.png)
 
-### 💳 Finance Tools
-- GST calculator
-- Discount calculator
-- EMI calculator
-- Simple/Compound interest
-- Salary tax helper (India)
+### 🎨 Design & Media
+Tools for creatives.
 
-### 🔧 Other Utilities
-- QR code generator
-- Password generator
-- File converters (CSV ↔ JSON, CSV ↔ Excel)
-- Unix timestamp converter
-- Day finder (find weekday from date)
+- **Color Studio**: Advanced color picker, palette generator, and contrast checker.
+- **Image Tools**: Client-side Image Resizer and Aspect Ratio Calculator.
+
+![Color Studio](screenshots/color_studio.png)
+
+### 🧬 Life & Health
+Smart tools for everyday life.
+
+- **Age Calculator**: Precise age calculation with next birthday countdown.
+- **SplitWise**: Track group expenses and settle debts.
+- **Health**: BMI & BMR calculators.
+
+![Age Calculator](screenshots/age_calc.png)
 
 ---
 
-## 🛠 Tech Stack
-- **React** (Hooks)
-- **Vite** (fast bundler)
-- **Tailwind CSS**
-- **lucide-react** icons
-- **js-yaml** (CDN)
-- **Browser APIs**: Canvas, Clipboard, Crypto, FileReader
+## 📦 Installation
 
----
+Run OmniTools locally on your machine.
 
-## 📦 Installation (Local Setup)
-
-### 1. Create project (using Vite)
 ```bash
-npm create vite@latest omni-tools -- --template react
-cd omni-tools
+# 1. Clone the repository
+git clone https://github.com/yourusername/omnitools.git
+
+# 2. Navigate to directory
+cd omnitools
+
+# 3. Install dependencies
+npm install
+
+# 4. Start development server
+npm run dev
 ```
+
+---
+
+## 📄 License
+
+**NON-COMMERCIAL USE ONLY**
+
+This project is licensed under a custom **Non-Commercial License**.
+- ✅ You **can** use this for personal learning, hobbies, and non-profit projects.
+- ❌ You **cannot** use this for commercial purposes.
+- ❌ You **cannot** sell, rent, or lease this software.
+
+See the [LICENSE](LICENSE) file for details.
+
+---
+
+Made with ❤️ by **Aasif**

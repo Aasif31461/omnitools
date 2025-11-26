@@ -3,6 +3,7 @@
   "homepage": "https://aasif31461.github.io/omnitools/",
   "private": true,
   "version": "0.0.0",
+  "license": "Non-Commercial",
   "type": "module",
   "scripts": {
     "dev": "vite",
