@@ -28,8 +28,8 @@ import {
 
 export const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Gauge, group: 'main', description: 'Overview of all tools', keywords: 'home, start, index', colorClass: 'bg-slate-100 text-slate-500' },
-    { id: 'devtools', label: 'Dev Tools', icon: Binary, group: 'tech', description: 'Base64, URL, Hash utilities', keywords: 'encode, decode, sha, md5, developer', colorClass: 'bg-violet-100 text-violet-500' },
     { id: 'splitwise', label: 'SplitWise', icon: Wallet, group: 'main', description: 'Track group expenses and balances', keywords: 'bill, share, cost, friend', colorClass: 'bg-emerald-100 text-emerald-500' },
+    { id: 'devtools', label: 'Dev Tools', icon: Binary, group: 'tech', description: 'Base64, URL, Hash utilities', keywords: 'encode, decode, sha, md5, developer', colorClass: 'bg-violet-100 text-violet-500' },
     { id: 'calculator', label: 'Calculator', icon: Calculator, group: 'util', description: 'Standard & Scientific calculator', keywords: 'math, add, subtract, multiply, divide, sin, cos, tan', colorClass: 'bg-blue-100 text-blue-500' },
     { id: 'unit-converter', label: 'Unit Converter', icon: ArrowRightLeft, group: 'util', description: 'Convert length, weight, temperature', keywords: 'metric, imperial, cm, inch, kg, lbs, celsius, fahrenheit', colorClass: 'bg-indigo-100 text-indigo-500' },
     { id: 'currency', label: 'Currency', icon: Coins, group: 'util', description: 'Real-time exchange rates', keywords: 'money, forex, usd, eur, inr, convert', colorClass: 'bg-yellow-100 text-yellow-500' },

@@ -2,6 +2,8 @@
 
 > **The Ultimate All-in-One Utility Suite for Developers & Everyone.**  
 > Fast, Private, Client-Side. No Login Required.
+>
+> [**🚀 Try it Live**](https://aasif31461.github.io/omnitools/)
 
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
@@ -56,7 +58,9 @@ Smart tools for everyday life.
 - **SplitWise**: Track group expenses and settle debts.
 - **Health**: BMI & BMR calculators.
 
-![Age Calculator](screenshots/age_calc.png)
+| Age Calculator | SplitWise |
+|:---:|:---:|
+| ![Age Calculator](screenshots/age_calc.png) | ![SplitWise](screenshots/splitwise.png) |
 
 ---
 

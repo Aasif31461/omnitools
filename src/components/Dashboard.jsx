@@ -21,7 +21,7 @@ const Dashboard = ({ changeTool }) => {
         <div className="animate-fade-in p-6 md:p-10 max-w-7xl mx-auto">
             <div className="mb-10 relative">
                 <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
-                    Omni<span className="text-primary-500">Tools</span>
+                    Omni<span className="text-primary-500">Tools</span> Pro
                 </h1>
                 <p className="text-slate-400 text-lg max-w-2xl">
                     A collection of powerful utilities for developers, designers, and everyone in between.
