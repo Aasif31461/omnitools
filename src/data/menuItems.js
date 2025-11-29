@@ -23,7 +23,9 @@ import {
     Cake,
     CheckSquare,
     Maximize,
-    Wifi
+    Wifi,
+    Link,
+    Wrench
 } from 'lucide-react';
 
 export const menuItems = [
@@ -53,4 +55,13 @@ export const menuItems = [
     { id: 'aspect-ratio', label: 'Aspect Ratio', icon: Maximize, group: 'media', description: 'Calculate screen dimensions', keywords: 'width, height, resolution, screen', colorClass: 'bg-fuchsia-100 text-fuchsia-500' },
     { id: 'network', label: 'Network Info', icon: Wifi, group: 'tech', description: 'IP and System details', keywords: 'ip address, user agent, browser, connection', colorClass: 'bg-cyan-100 text-cyan-500' },
     { id: 'markdown', label: 'Markdown', icon: FileText, group: 'tech', description: 'Live Markdown Preview', keywords: 'editor, preview, md, text', colorClass: 'bg-rose-100 text-rose-500' },
+    {
+        id: 'smart-utilities',
+        label: 'Smart Utilities',
+        icon: Wrench,
+        group: 'util',
+        description: 'Event parsing and WhatsApp tools',
+        keywords: ['link', 'extractor', 'whatsapp', 'calendar', 'parser'],
+        colorClass: 'text-indigo-400'
+    },
 ];

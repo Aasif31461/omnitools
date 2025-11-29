@@ -35,6 +35,7 @@ import YamlConverter from './components/YamlConverter';
 import UuidGenerator from './components/UuidGenerator';
 import TimeSuite from './components/TimeSuite';
 import FinanceSuite from './components/FinanceSuite';
+import SmartUtilities from './components/SmartUtilities';
 import Toast from './components/Toast';
 
 export default function App() {
@@ -80,6 +81,8 @@ export default function App() {
       case 'uuid': return <UuidGenerator showToast={showToast} />;
       case 'time-suite': return <TimeSuite />;
       case 'finance-suite': return <FinanceSuite />;
+      case 'smart-utilities':
+        return <SmartUtilities showToast={showToast} />;
       default: return <Dashboard changeTool={setActiveTool} />;
     }
   };
