@@ -25,7 +25,8 @@ import {
     Maximize,
     Wifi,
     Link,
-    Wrench
+    Wrench,
+    TrendingUp
 } from 'lucide-react';
 
 export const menuItems = [
@@ -37,10 +38,10 @@ export const menuItems = [
     { id: 'currency', label: 'Currency', icon: Coins, group: 'util', description: 'Real-time exchange rates', keywords: 'money, forex, usd, eur, inr, convert', colorClass: 'bg-yellow-100 text-yellow-500' },
     { id: 'time-suite', label: 'Time Suite', icon: Clock, group: 'util', description: 'Stopwatch, Timer, Pomodoro', keywords: 'alarm, focus, unix, date, epoch', colorClass: 'bg-sky-100 text-sky-500' },
     { id: 'text-tools', label: 'Text Studio', icon: FileText, group: 'util', description: 'Manipulate and analyze text', keywords: 'word count, character count, case, lorem ipsum, diff', colorClass: 'bg-indigo-100 text-indigo-400' },
-    { id: 'finance-suite', label: 'Finance', icon: Briefcase, group: 'util', description: 'GST, Discount, Tax, SIP', keywords: 'money, invest, loan, profit, margin, salary', colorClass: 'bg-green-100 text-green-600' },
+
     { id: 'split-bill', label: 'Quick Split', icon: Receipt, group: 'life', description: 'Simple bill splitter with tip', keywords: 'restaurant, tip, share', colorClass: 'bg-orange-100 text-orange-500' },
     { id: 'rate-calc', label: 'Rate Calc', icon: Tag, group: 'life', description: 'Calculate item rates and totals', keywords: 'price, quantity, unit', colorClass: 'bg-pink-100 text-pink-500' },
-    { id: 'emi-calc', label: 'EMI Calc', icon: Landmark, group: 'life', description: 'Loan EMI calculator', keywords: 'loan, interest, bank, mortgage', colorClass: 'bg-teal-100 text-teal-500' },
+
     { id: 'health', label: 'Health', icon: Activity, group: 'life', description: 'BMI & BMR Calculator', keywords: 'fitness, weight, height, calories, diet', colorClass: 'bg-rose-100 text-rose-500' },
     { id: 'password', label: 'Password', icon: Lock, group: 'tech', description: 'Secure password generator', keywords: 'security, random, strong', colorClass: 'bg-indigo-100 text-indigo-500' },
     { id: 'regex', label: 'Regex Builder', icon: Search, group: 'tech', description: 'Visual Regular Expression builder', keywords: 'pattern, match, find, replace', colorClass: 'bg-pink-100 text-pink-600' },
@@ -49,19 +50,37 @@ export const menuItems = [
     { id: 'uuid', label: 'UUID', icon: Fingerprint, group: 'tech', description: 'Generate UUIDs', keywords: 'guid, id, random, unique', colorClass: 'bg-slate-100 text-slate-400' },
     { id: 'qr', label: 'QR Gen', icon: QrCode, group: 'tech', description: 'Create QR Codes', keywords: 'barcode, scan, link, share', colorClass: 'bg-indigo-100 text-indigo-500' },
     { id: 'color-studio', label: 'Color Studio', icon: Palette, group: 'media', description: 'Color picker and palettes', keywords: 'hex, rgb, hsl, design, contrast', colorClass: 'bg-cyan-100 text-cyan-500' },
-    { id: 'image-resizer', label: 'Image Resizer', icon: ImageIcon, group: 'media', description: 'Resize and compress images', keywords: 'photo, picture, scale, dimension', colorClass: 'bg-purple-100 text-purple-500' },
+    { id: 'image-resizer', label: 'Image Studio', icon: ImageIcon, group: 'media', description: 'Edit, Resize, Compress & Convert', keywords: 'photo, picture, scale, dimension, crop, filter', colorClass: 'bg-purple-100 text-purple-500' },
     { id: 'age-calc', label: 'Age Calc', icon: Cake, group: 'life', description: 'Calculate exact age', keywords: 'birthday, date, years, months', colorClass: 'bg-red-100 text-red-500' },
     { id: 'todo', label: 'To-Do', icon: CheckSquare, group: 'life', description: 'Task manager', keywords: 'list, task, done, check', colorClass: 'bg-lime-100 text-lime-500' },
     { id: 'aspect-ratio', label: 'Aspect Ratio', icon: Maximize, group: 'media', description: 'Calculate screen dimensions', keywords: 'width, height, resolution, screen', colorClass: 'bg-fuchsia-100 text-fuchsia-500' },
     { id: 'network', label: 'Network Info', icon: Wifi, group: 'tech', description: 'IP and System details', keywords: 'ip address, user agent, browser, connection', colorClass: 'bg-cyan-100 text-cyan-500' },
     { id: 'markdown', label: 'Markdown', icon: FileText, group: 'tech', description: 'Live Markdown Preview', keywords: 'editor, preview, md, text', colorClass: 'bg-rose-100 text-rose-500' },
     {
+        id: 'finance-suite',
+        label: 'Finance Suite',
+        icon: Landmark,
+        group: 'life',
+        description: 'GST, Discount, SIP & Tax tools',
+        keywords: 'tax, gst, discount, sip, loan, emi',
+        colorClass: 'text-emerald-400'
+    },
+    {
+        id: 'invest-suite',
+        label: 'Invest Suite',
+        icon: TrendingUp,
+        group: 'life',
+        description: 'Goal planning & Portfolio tools',
+        keywords: 'sip, interest, goal, portfolio, wealth, inflation',
+        colorClass: 'text-blue-400'
+    },
+    {
         id: 'smart-utilities',
         label: 'Smart Utilities',
         icon: Wrench,
         group: 'util',
         description: 'Event parsing and WhatsApp tools',
-        keywords: ['link', 'extractor', 'whatsapp', 'calendar', 'parser'],
+        keywords: 'link, extractor, whatsapp, calendar, parser',
         colorClass: 'text-indigo-400'
     },
 ];

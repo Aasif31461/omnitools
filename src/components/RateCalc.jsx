@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Tag, Calculator } from 'lucide-react';
+import { getCurrencySymbol } from '../utils/currency';
 
 const RateCalc = () => {
     const [basePrice, setBasePrice] = useState(100);
@@ -9,7 +10,7 @@ const RateCalc = () => {
     const [targetQty, setTargetQty] = useState(800);
     const [targetUnit, setTargetUnit] = useState('g');
     const [budget, setBudget] = useState(50);
-    const currency = '$'; // Default currency
+    const currency = getCurrencySymbol(); // Dynamic currency
 
     const getMultiplier = (unit) => (unit === 'kg' || unit === 'l') ? 1000 : 1;
 

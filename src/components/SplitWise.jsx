@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Activity, Users, X, Plus, Download, Receipt, ChevronDown, Trash2, BarChart, CheckCircle, ArrowRight } from 'lucide-react';
 import BalanceChart from './BalanceChart';
+import { getCurrencySymbol } from '../utils/currency';
 
-const SplitWise = () => {
-    const currency = '$'; // Default currency if not passed or global
+const SplitWise = ({ showToast }) => {
+    const currency = getCurrencySymbol(); // Dynamic currency
 
     // Persistent State Initialization
     const [data, setData] = useState(() => {
@@ -46,16 +47,28 @@ const SplitWise = () => {
     };
 
     const addExpense = () => {
-        if (newExp.amount && newExp.desc && newExp.payer) {
-            const expense = {
-                ...newExp,
-                id: Date.now(),
-                amount: parseFloat(newExp.amount),
-                date: new Date().toISOString()
-            };
-            setData(prev => ({ ...prev, expenses: [...prev.expenses, expense] }));
-            setNewExp({ ...newExp, amount: '', desc: '' });
+        if (!newExp.desc.trim()) {
+            showToast('Please enter a description');
+            return;
         }
+        if (!newExp.amount || parseFloat(newExp.amount) <= 0) {
+            showToast('Please enter a valid amount');
+            return;
+        }
+        if (!newExp.payer) {
+            showToast('Please select a payer');
+            return;
+        }
+
+        const expense = {
+            ...newExp,
+            id: Date.now(),
+            amount: parseFloat(newExp.amount),
+            date: new Date().toISOString()
+        };
+        setData(prev => ({ ...prev, expenses: [...prev.expenses, expense] }));
+        setNewExp({ ...newExp, amount: '', desc: '' });
+        showToast('Expense added successfully');
     };
 
     const removeExpense = (id) => {

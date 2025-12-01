@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Receipt } from 'lucide-react';
+import { getCurrencySymbol } from '../utils/currency';
 
 const SplitBill = () => {
     const [bill, setBill] = useState(1000);
     const [people, setPeople] = useState(4);
     const [tip, setTip] = useState(10);
-    const currency = '$'; // Default currency
+    const currency = getCurrencySymbol(); // Dynamic currency
 
     const tipAmount = (bill * tip) / 100;
     const total = bill + tipAmount;

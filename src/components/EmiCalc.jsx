@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
+import { getCurrencySymbol } from '../utils/currency';
 
 const EmiCalc = () => {
     const [principal, setPrincipal] = useState(500000);
     const [rate, setRate] = useState(10);
     const [years, setYears] = useState(5);
-    const currency = '$'; // Default currency
+    const currency = getCurrencySymbol(); // Dynamic currency
 
     const r = rate / 12 / 100;
     const n = years * 12;
