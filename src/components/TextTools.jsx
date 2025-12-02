@@ -28,6 +28,8 @@ const TextTools = ({ showToast }) => {
             case 'dedup': newText = [...new Set(text.split('\n'))].join('\n'); break;
             case 'trim': newText = text.replace(/\s+/g, ' ').trim(); break;
             case 'unique-words': newText = [...new Set(text.trim().split(/\s+/))].join(' '); break;
+            case 'reverse-text': newText = text.split('').reverse().join(''); break;
+            case 'reverse-words': newText = text.split(/\s+/).reverse().join(' '); break;
             default: break;
         }
         setText(newText);
@@ -103,6 +105,13 @@ const TextTools = ({ showToast }) => {
                                     <button onClick={() => handleTransform('trim')} className="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">Trim</button>
                                     <button onClick={() => handleTransform('dedup')} className="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">Unique Lines</button>
                                     <button onClick={() => handleTransform('unique-words')} className="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">Unique Words</button>
+                                </div>
+
+                                <div className="w-px bg-slate-800 my-1"></div>
+
+                                <div className="flex gap-1 bg-slate-900 rounded-xl p-1">
+                                    <button onClick={() => handleTransform('reverse-text')} className="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">Reverse Text</button>
+                                    <button onClick={() => handleTransform('reverse-words')} className="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">Reverse Words</button>
                                 </div>
 
                                 <div className="ml-auto flex gap-2">

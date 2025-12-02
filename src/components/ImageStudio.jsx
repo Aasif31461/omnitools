@@ -7,6 +7,7 @@ import { imagePresets } from '../data/imagePresets';
 const ImageStudio = () => {
     const [image, setImage] = useState(null);
     const [preview, setPreview] = useState(null);
+    const [originalImage, setOriginalImage] = useState(null); // Store original data URL
     const [activeTab, setActiveTab] = useState('resize');
     const [originalSize, setOriginalSize] = useState(0);
     const canvasRef = useRef(null);
@@ -55,7 +56,11 @@ const ImageStudio = () => {
                     setWidth(img.width);
                     setHeight(img.height);
                     setOriginalDimensions({ width: img.width, height: img.height });
+                    setWidth(img.width);
+                    setHeight(img.height);
+                    setOriginalDimensions({ width: img.width, height: img.height });
                     setPreview(img.src);
+                    setOriginalImage(img.src);
                     resetFilters();
                     setCroppedData(null);
                     setTargetSize(null);
@@ -236,6 +241,24 @@ const ImageStudio = () => {
                 setWidth(img.width);
                 setHeight(img.height);
             };
+        }
+    };
+
+    const handleRevertToOriginal = () => {
+        if (originalImage) {
+            setImage(originalImage);
+            setPreview(originalImage);
+            setWidth(originalDimensions.width);
+            setHeight(originalDimensions.height);
+            resetFilters();
+            setCroppedData(null);
+            setTargetSize(null);
+            setSelectedPreset(null);
+            setFinalResult(null);
+            setActiveTab('resize');
+            setQuality(80);
+            setFormat('image/jpeg');
+            setMaintainRatio(true);
         }
     };
 
@@ -436,12 +459,34 @@ const ImageStudio = () => {
                                         checkOrientation={false}
                                     />
                                 ) : (
-                                    <img src={preview} alt="Preview" className="max-w-full max-h-[500px] object-contain shadow-2xl rounded-lg relative z-10" />
+                                    <img
+                                        src={preview}
+                                        alt="Preview"
+                                        className="max-w-full max-h-[500px] object-contain shadow-2xl rounded-lg relative z-10 transition-all duration-300"
+                                        style={{
+                                            filter: [
+                                                filter !== 'none' ? `${filter}(100%)` : '',
+                                                `brightness(${brightness}%)`,
+                                                `contrast(${contrast}%)`,
+                                                `saturate(${saturation}%)`,
+                                                `blur(${blur}px)`
+                                            ].filter(Boolean).join(' ') || 'none'
+                                        }}
+                                    />
                                 )}
 
                                 <div className="absolute top-4 right-4 bg-black/50 backdrop-blur text-white text-xs px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-20">
                                     {(compressedSize / 1024).toFixed(2)} KB
                                 </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleRevertToOriginal}
+                                    className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold rounded-xl transition-colors flex items-center justify-center gap-2 border border-red-500/20"
+                                >
+                                    <RefreshCw size={18} /> Revert to Original
+                                </button>
                             </div>
 
                             {/* Tabs */}
