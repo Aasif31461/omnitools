@@ -104,7 +104,17 @@ const DependencyTree = ({ dependencies, allPackages, onSelect, depth = 0, forced
                 const isExpanded = expanded[name];
 
                 // Check if this node matches the search query
-                const isMatch = searchQuery && name.toLowerCase().includes(searchQuery.toLowerCase());
+                let isMatch = false;
+                if (searchQuery) {
+                    const isExact = searchQuery.startsWith('"') && searchQuery.endsWith('"');
+                    const query = isExact ? searchQuery.slice(1, -1).toLowerCase() : searchQuery.toLowerCase();
+
+                    if (isExact) {
+                        isMatch = name.toLowerCase() === query;
+                    } else {
+                        isMatch = name.toLowerCase().includes(query);
+                    }
+                }
 
                 return (
                     <div key={name} className="my-1">
@@ -209,7 +219,17 @@ const DependencyGraph = ({ root, allPackages, onSelect, searchQuery = '' }) => {
                 const currentPath = [...path, name];
 
                 // If match found
-                if (name.toLowerCase().includes(searchQuery.toLowerCase())) {
+                let isMatch = false;
+                const isExact = searchQuery.startsWith('"') && searchQuery.endsWith('"');
+                const query = isExact ? searchQuery.slice(1, -1).toLowerCase() : searchQuery.toLowerCase();
+
+                if (isExact) {
+                    isMatch = name.toLowerCase() === query;
+                } else {
+                    isMatch = name.toLowerCase().includes(query);
+                }
+
+                if (isMatch) {
                     // Add all parents to forcedExpanded
                     path.forEach(p => matches.add(p));
                     // Add formatted path
@@ -637,11 +657,16 @@ const DependencyAnalyzer = () => {
         if (filter === 'dev') res = res.filter(d => d.dev || d.type === 'dev');
 
         if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            res = res.filter(d =>
-                d.name.toLowerCase().includes(query) ||
-                (d.version && d.version.toLowerCase().includes(query))
-            );
+            const isExact = searchQuery.startsWith('"') && searchQuery.endsWith('"');
+            const query = isExact ? searchQuery.slice(1, -1).toLowerCase() : searchQuery.toLowerCase();
+
+            res = res.filter(d => {
+                if (isExact) {
+                    return d.name.toLowerCase() === query;
+                }
+                return d.name.toLowerCase().includes(query) ||
+                    (d.version && d.version.toLowerCase().includes(query));
+            });
         }
 
         // Sorting
@@ -1054,7 +1079,12 @@ const DependencyAnalyzer = () => {
                             {viewMode === 'list' ? (
                                 filter === 'scripts' ? (
                                     <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {Object.entries(projectInfo.scripts).filter(([k]) => k.toLowerCase().includes(searchQuery.toLowerCase())).map(([key, cmd]) => (
+                                        {Object.entries(projectInfo.scripts).filter(([k]) => {
+                                            const isExact = searchQuery.startsWith('"') && searchQuery.endsWith('"');
+                                            const query = isExact ? searchQuery.slice(1, -1).toLowerCase() : searchQuery.toLowerCase();
+                                            if (isExact) return k.toLowerCase() === query;
+                                            return k.toLowerCase().includes(query);
+                                        }).map(([key, cmd]) => (
                                             <div key={key} className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl hover:border-primary-500/50 transition-colors group">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <div className="font-mono font-bold text-primary-400">{key}</div>
