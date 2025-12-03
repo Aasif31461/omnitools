@@ -4,7 +4,7 @@ import {
     ChevronDown, ShieldCheck, ShieldAlert, X, ExternalLink,
     GitBranch, Tag, Calendar, Layers, Box, Info, Terminal,
     Download, Globe, User, Code, Database, Cpu, ArrowUpDown, ArrowUp, ArrowDown,
-    List, GitGraph, Plus, Minus, Maximize, RefreshCw
+    List, GitGraph, Plus, Minus, Maximize, RefreshCw, Copy, Check
 } from 'lucide-react';
 
 // --- Utility Components ---
@@ -202,6 +202,9 @@ const DependencyGraph = ({ root, allPackages, onSelect, searchQuery = '' }) => {
     const [treeKey, setTreeKey] = useState(0);
 
     // Search and Expand Logic
+    const [copied, setCopied] = useState(false);
+
+    // Search and Expand Logic
     useEffect(() => {
         if (!searchQuery || searchQuery.length < 2) {
             setForcedExpanded(new Set());
@@ -215,8 +218,10 @@ const DependencyGraph = ({ root, allPackages, onSelect, searchQuery = '' }) => {
         const search = (deps, path = []) => {
             if (!deps) return;
 
-            Object.entries(deps).forEach(([name, version]) => {
-                const currentPath = [...path, name];
+            Object.entries(deps).forEach(([name, versionRange]) => {
+                const version = typeof versionRange === 'object' ? versionRange.version : versionRange;
+                // Store both name and version in the path
+                const currentPath = [...path, { name, version }];
 
                 // If match found
                 let isMatch = false;
@@ -230,10 +235,10 @@ const DependencyGraph = ({ root, allPackages, onSelect, searchQuery = '' }) => {
                 }
 
                 if (isMatch) {
-                    // Add all parents to forcedExpanded
-                    path.forEach(p => matches.add(p));
-                    // Add formatted path
-                    paths.push(currentPath.join(' > '));
+                    // Add all parents to forcedExpanded (using just name for expansion logic)
+                    currentPath.forEach(p => matches.add(p.name));
+                    // Add full path object
+                    paths.push(currentPath);
                 }
 
                 // Recursive search
@@ -258,6 +263,16 @@ const DependencyGraph = ({ root, allPackages, onSelect, searchQuery = '' }) => {
         setTreeKey(prev => prev + 1);
         setForcedExpanded(new Set());
         setRootExpanded(true); // Keep root open
+    };
+
+    const handleCopyPaths = () => {
+        const text = foundPaths.map(path =>
+            path.map(p => `${p.name}@${p.version}`).join(' > ')
+        ).join('\n');
+
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
     return (
@@ -306,20 +321,33 @@ const DependencyGraph = ({ root, allPackages, onSelect, searchQuery = '' }) => {
                         {/* Search Paths Display */}
                         {foundPaths.length > 0 && (
                             <div className="bg-slate-900/50 rounded-xl border border-slate-800/50 p-4 animate-fade-in">
-                                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                                    <Search size={12} />
-                                    Found {foundPaths.length} paths for "{searchQuery}"
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                        <Search size={12} />
+                                        Found {foundPaths.length} paths for "{searchQuery}"
+                                    </div>
+                                    <button
+                                        onClick={handleCopyPaths}
+                                        className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 transition-colors"
+                                    >
+                                        {copied ? <Check size={10} className="text-emerald-400" /> : <Copy size={10} />}
+                                        {copied ? 'Copied' : 'Copy Paths'}
+                                    </button>
                                 </div>
-                                <div className="flex flex-col gap-1 max-h-32 overflow-y-auto custom-scrollbar">
+                                <div className="flex flex-col gap-1 max-h-64 overflow-auto custom-scrollbar bg-slate-950/50 p-3 rounded-lg border border-slate-800/30">
                                     {foundPaths.map((path, index) => (
-                                        <div key={index} className="text-xs font-mono text-slate-400 hover:text-primary-400 transition-colors cursor-default truncate">
-                                            <span className="text-slate-600 mr-2">#{index + 1}</span>
-                                            {path.split(' > ').map((part, i, arr) => (
-                                                <span key={i}>
-                                                    <span className={i === arr.length - 1 ? "text-primary-400 font-bold" : ""}>{part}</span>
-                                                    {i < arr.length - 1 && <span className="mx-1 text-slate-600">&gt;</span>}
-                                                </span>
-                                            ))}
+                                        <div key={index} className="text-sm font-mono text-slate-400 hover:text-primary-400 transition-colors cursor-default whitespace-nowrap flex items-center">
+                                            <span className="text-slate-600 mr-3 select-none text-xs w-6 text-right shrink-0">#{index + 1}</span>
+                                            <span>
+                                                {path.map((part, i, arr) => (
+                                                    <span key={i}>
+                                                        <span className={i === arr.length - 1 ? "text-primary-400 font-bold" : ""}>
+                                                            {part.name}<span className="text-slate-600">@{part.version}</span>
+                                                        </span>
+                                                        {i < arr.length - 1 && <span className="mx-2 text-slate-700">&gt;</span>}
+                                                    </span>
+                                                ))}
+                                            </span>
                                         </div>
                                     ))}
                                 </div>
@@ -979,7 +1007,7 @@ const DependencyAnalyzer = () => {
                                                 <Tag size={14} /> {projectInfo.license}
                                             </div>
                                             <div className="flex items-center gap-2 text-slate-400 text-sm bg-slate-900/50 px-3 py-1.5 rounded-lg border border-slate-800">
-                                                <Cpu size={14} /> {Object.keys(projectInfo.engines).length > 0 ? Object.keys(projectInfo.engines).join(', ') : 'Any Engine'}
+                                                <Cpu size={14} /> {projectInfo.engines && Object.keys(projectInfo.engines).length > 0 ? Object.keys(projectInfo.engines).join(', ') : 'Any Engine'}
                                             </div>
                                         </div>
                                     </div>
