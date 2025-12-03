@@ -7,7 +7,6 @@ import {
     Coins,
     Clock,
     FileText,
-    Briefcase,
     Receipt,
     Tag,
     Landmark,
@@ -24,9 +23,9 @@ import {
     CheckSquare,
     Maximize,
     Wifi,
-    Link,
     Wrench,
-    TrendingUp
+    TrendingUp,
+    Package
 } from 'lucide-react';
 
 export const menuItems = [
@@ -56,6 +55,7 @@ export const menuItems = [
     { id: 'aspect-ratio', label: 'Aspect Ratio', icon: Maximize, group: 'media', description: 'Calculate screen dimensions', keywords: 'width, height, resolution, screen', colorClass: 'bg-fuchsia-100 text-fuchsia-500' },
     { id: 'network', label: 'Network Info', icon: Wifi, group: 'tech', description: 'IP and System details', keywords: 'ip address, user agent, browser, connection', colorClass: 'bg-cyan-100 text-cyan-500' },
     { id: 'markdown', label: 'Markdown', icon: FileText, group: 'tech', description: 'Live Markdown Preview', keywords: 'editor, preview, md, text', colorClass: 'bg-rose-100 text-rose-500' },
+    { id: 'dependency-analyzer', label: 'Dep Analyzer', icon: Package, group: 'tech', description: 'Analyze package.json & lock files', keywords: 'npm, yarn, package, dependencies, tree, security', colorClass: 'bg-orange-100 text-orange-500' },
     {
         id: 'finance-suite',
         label: 'Finance Suite',

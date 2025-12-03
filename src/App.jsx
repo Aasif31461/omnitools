@@ -37,6 +37,7 @@ import TimeSuite from './components/TimeSuite';
 import FinanceSuite from './components/FinanceSuite';
 import InvestSuite from './components/InvestSuite';
 import SmartUtilities from './components/SmartUtilities';
+import DependencyAnalyzer from './components/DependencyAnalyzer';
 import Toast from './components/Toast';
 
 const NavButton = ({ item, isActive, onClick, mobile = false }) => (
@@ -98,6 +99,8 @@ export default function App() {
       case 'invest-suite': return <InvestSuite />;
       case 'smart-utilities':
         return <SmartUtilities showToast={showToast} />;
+      case 'dependency-analyzer':
+        return <DependencyAnalyzer />;
       default: return <Dashboard changeTool={setActiveTool} />;
     }
   };
