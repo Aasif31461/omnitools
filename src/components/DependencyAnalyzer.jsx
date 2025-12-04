@@ -4,7 +4,7 @@ import {
     ChevronDown, ShieldCheck, ShieldAlert, X, ExternalLink,
     GitBranch, Tag, Calendar, Layers, Box, Info, Terminal,
     Download, Globe, User, Code, Database, Cpu, ArrowUpDown, ArrowUp, ArrowDown,
-    List, GitGraph, Plus, Minus, Maximize, RefreshCw, Copy, Check
+    List, GitGraph, Plus, Minus, Maximize, RefreshCw, Copy, Check, Filter
 } from 'lucide-react';
 
 // --- Utility Components ---
@@ -595,18 +595,28 @@ const DependencyAnalyzer = () => {
 
     // --- API Integration ---
 
-    const fetchPackageDetails = async (name) => {
-        if (pkgDetails[name]) return;
+    const fetchPackageDetails = async (name, version) => {
+        // If we already have details for this specific version, don't refetch
+        if (pkgDetails[name] && pkgDetails[name].versionChecked === version) return;
 
         setLoadingDetails(true);
         try {
-            const [metaRes, downloadsRes] = await Promise.all([
+            const [metaRes, downloadsRes, vulnsRes] = await Promise.all([
                 fetch(`https://registry.npmjs.org/${name}/latest`),
-                fetch(`https://api.npmjs.org/downloads/point/last-week/${name}`)
+                fetch(`https://api.npmjs.org/downloads/point/last-week/${name}`),
+                fetch('https://api.osv.dev/v1/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        package: { name: name, ecosystem: 'npm' },
+                        version: version
+                    })
+                })
             ]);
 
             const meta = metaRes.ok ? await metaRes.json() : {};
             const downloads = downloadsRes.ok ? await downloadsRes.json() : {};
+            const vulns = vulnsRes.ok ? await vulnsRes.json() : {};
 
             setPkgDetails(prev => ({
                 ...prev,
@@ -614,7 +624,9 @@ const DependencyAnalyzer = () => {
                     ...meta,
                     downloads: downloads.downloads,
                     latestVersion: meta.version,
-                    unpackedSize: meta.dist?.unpackedSize
+                    unpackedSize: meta.dist?.unpackedSize,
+                    vulnerabilities: vulns.vulns || [],
+                    versionChecked: version
                 }
             }));
         } catch (err) {
@@ -626,7 +638,8 @@ const DependencyAnalyzer = () => {
 
     useEffect(() => {
         if (selectedPkg) {
-            fetchPackageDetails(selectedPkg.name);
+            const cleanVersion = selectedPkg.version?.replace(/[\^~]/g, '') || '0.0.0';
+            fetchPackageDetails(selectedPkg.name, cleanVersion);
             setActiveTab('overview'); // Reset tab on new selection
         }
     }, [selectedPkg]);
@@ -667,7 +680,75 @@ const DependencyAnalyzer = () => {
         setIsCheckingUpdates(false);
     };
 
+    const [isCheckingVulns, setIsCheckingVulns] = useState(false);
+
+    const checkAllVulnerabilities = async () => {
+        if (isCheckingVulns || !data) return;
+        setIsCheckingVulns(true);
+
+        try {
+            // Prepare batch query
+            const queries = data
+                .filter(p => p.version && p.name)
+                .map(p => ({
+                    package: { name: p.name, ecosystem: 'npm' },
+                    version: p.version.replace(/[\^~]/g, '')
+                }));
+
+            // OSV batch API allows up to 1000 queries per request
+            // We'll chunk it just in case, though 1000 is usually plenty for typical projects
+            const chunkSize = 1000;
+            for (let i = 0; i < queries.length; i += chunkSize) {
+                const chunk = queries.slice(i, i + chunkSize);
+                const res = await fetch('https://api.osv.dev/v1/querybatch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ queries: chunk })
+                });
+
+                if (res.ok) {
+                    const result = await res.json();
+                    const results = result.results || [];
+
+                    setPkgDetails(prev => {
+                        const next = { ...prev };
+                        chunk.forEach((q, idx) => {
+                            const vulns = results[idx]?.vulns || [];
+                            if (vulns.length > 0) {
+                                const pkgName = q.package.name;
+                                next[pkgName] = {
+                                    ...(next[pkgName] || {}),
+                                    vulnerabilities: vulns,
+                                    versionChecked: q.version
+                                };
+                            }
+                        });
+                        return next;
+                    });
+                }
+            }
+        } catch (err) {
+            console.error("Failed to check vulnerabilities", err);
+        } finally {
+            setIsCheckingVulns(false);
+        }
+    };
+
     // --- Derived State ---
+
+    const [showVulnerableOnly, setShowVulnerableOnly] = useState(false);
+
+    const totalVulnerabilities = useMemo(() => {
+        if (!data) return 0;
+        return data.reduce((acc, pkg) => {
+            return acc + (pkgDetails[pkg.name]?.vulnerabilities?.length || 0);
+        }, 0);
+    }, [data, pkgDetails]);
+
+    const vulnerablePackagesCount = useMemo(() => {
+        if (!data) return 0;
+        return data.filter(pkg => (pkgDetails[pkg.name]?.vulnerabilities?.length || 0) > 0).length;
+    }, [data, pkgDetails]);
 
     const handleSort = (key) => {
         let direction = 'asc';
@@ -677,13 +758,15 @@ const DependencyAnalyzer = () => {
         setSortConfig({ key, direction });
     };
 
-    const filteredData = useMemo(() => {
+    const sortedData = useMemo(() => {
         if (!data) return [];
-        let res = data;
+        let res = [...data];
 
+        // Apply type filter (prod/dev/all)
         if (filter === 'prod') res = res.filter(d => d.type === 'prod' || (!d.dev && !d.type));
         if (filter === 'dev') res = res.filter(d => d.dev || d.type === 'dev');
 
+        // Apply search filter
         if (searchQuery) {
             const isExact = searchQuery.startsWith('"') && searchQuery.endsWith('"');
             const query = isExact ? searchQuery.slice(1, -1).toLowerCase() : searchQuery.toLowerCase();
@@ -695,6 +778,11 @@ const DependencyAnalyzer = () => {
                 return d.name.toLowerCase().includes(query) ||
                     (d.version && d.version.toLowerCase().includes(query));
             });
+        }
+
+        // Apply vulnerability filter
+        if (showVulnerableOnly) {
+            res = res.filter(pkg => (pkgDetails[pkg.name]?.vulnerabilities?.length || 0) > 0);
         }
 
         // Sorting
@@ -709,7 +797,7 @@ const DependencyAnalyzer = () => {
         });
 
         return res;
-    }, [data, searchQuery, filter, sortConfig]);
+    }, [data, searchQuery, filter, sortConfig, pkgDetails, showVulnerableOnly]);
 
     const stats = useMemo(() => {
         if (!data) return null;
@@ -735,6 +823,8 @@ const DependencyAnalyzer = () => {
         const currentVer = cleanVersion(selectedPkg.version);
         const latestVer = details?.latestVersion || currentVer;
         const isOutdated = details && currentVer !== latestVer && selectedPkg.version !== 'latest';
+        const vulnerabilities = details?.vulnerabilities || [];
+        const hasVulnerabilities = vulnerabilities.length > 0;
 
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
@@ -766,6 +856,13 @@ const DependencyAnalyzer = () => {
                                                 Update: v{latestVer}
                                             </div>
                                         )}
+
+                                        {hasVulnerabilities && (
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse">
+                                                <ShieldAlert size={12} />
+                                                {vulnerabilities.length} Vulnerabilit{vulnerabilities.length === 1 ? 'y' : 'ies'}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -784,9 +881,15 @@ const DependencyAnalyzer = () => {
                                 >
                                     Dependencies
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('security')}
+                                    className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'security' ? 'bg-slate-800 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                                >
+                                    Security
+                                </button>
                             </div>
 
-                            {activeTab === 'overview' ? (
+                            {activeTab === 'overview' && (
                                 isLoading ? (
                                     <div className="space-y-4 animate-pulse">
                                         <div className="h-4 bg-slate-800 rounded w-3/4"></div>
@@ -865,7 +968,9 @@ const DependencyAnalyzer = () => {
                                         Could not fetch additional details.
                                     </div>
                                 )
-                            ) : (
+                            )}
+
+                            {activeTab === 'tree' && (
                                 <div className="flex-1 overflow-y-auto custom-scrollbar animate-fade-in">
                                     <div className="bg-slate-950/50 rounded-xl border border-slate-800 p-4">
                                         <h4 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
@@ -893,6 +998,131 @@ const DependencyAnalyzer = () => {
                                             </div>
                                         )}
                                     </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'security' && (
+                                <div className="flex-1 overflow-y-auto custom-scrollbar animate-fade-in">
+                                    {isLoading ? (
+                                        <div className="space-y-4 p-4 animate-pulse">
+                                            <div className="h-20 bg-slate-800 rounded-xl"></div>
+                                            <div className="h-20 bg-slate-800 rounded-xl"></div>
+                                        </div>
+                                    ) : hasVulnerabilities ? (
+                                        <div className="space-y-4 p-4">
+                                            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
+                                                <ShieldAlert className="text-red-400 shrink-0 mt-0.5" size={20} />
+                                                <div>
+                                                    <h4 className="text-red-400 font-bold text-sm">Security Issues Found</h4>
+                                                    <p className="text-red-400/80 text-xs mt-1">
+                                                        This version of {selectedPkg.name} has {vulnerabilities.length} known vulnerabilit{vulnerabilities.length === 1 ? 'y' : 'ies'}.
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {vulnerabilities.map((vuln) => {
+                                                const severity = vuln.database_specific?.severity || "UNKNOWN";
+                                                const severityColor = {
+                                                    CRITICAL: "bg-red-500 text-white border-red-600",
+                                                    HIGH: "bg-orange-500 text-white border-orange-600",
+                                                    MODERATE: "bg-yellow-500 text-black border-yellow-600",
+                                                    LOW: "bg-slate-500 text-white border-slate-600",
+                                                    UNKNOWN: "bg-slate-700 text-slate-300 border-slate-600"
+                                                }[severity.toUpperCase()] || "bg-slate-700 text-slate-300 border-slate-600";
+
+                                                return (
+                                                    <div key={vuln.id} className="bg-slate-950/50 border border-slate-800 rounded-xl p-5 hover:border-red-500/30 transition-colors">
+                                                        <div className="flex items-start justify-between gap-4 mb-3">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${severityColor}`}>
+                                                                    {severity}
+                                                                </span>
+                                                                <span className="text-sm font-bold text-white font-mono">{vuln.id}</span>
+                                                                {vuln.aliases && vuln.aliases.length > 0 && (
+                                                                    <span className="text-xs text-slate-500">({vuln.aliases[0]})</span>
+                                                                )}
+                                                            </div>
+                                                            <a
+                                                                href={`https://osv.dev/vulnerability/${vuln.id}`}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="text-xs text-primary-400 hover:text-primary-300 flex items-center gap-1 bg-slate-900 px-2 py-1 rounded border border-slate-800 hover:border-primary-500/50 transition-colors"
+                                                            >
+                                                                View on OSV <ExternalLink size={10} />
+                                                            </a>
+                                                        </div>
+
+                                                        <h5 className="text-base font-semibold text-slate-200 mb-2">
+                                                            {vuln.summary || "No summary available"}
+                                                        </h5>
+
+                                                        <div className="text-sm text-slate-400 mb-4 leading-relaxed whitespace-pre-wrap font-sans">
+                                                            {vuln.details || "No details available."}
+                                                        </div>
+
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                                            <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800/50">
+                                                                <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Published</div>
+                                                                <div className="text-sm text-slate-300 flex items-center gap-2">
+                                                                    <Calendar size={14} />
+                                                                    {vuln.published ? new Date(vuln.published).toLocaleDateString() : 'N/A'}
+                                                                </div>
+                                                            </div>
+                                                            <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800/50">
+                                                                <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Modified</div>
+                                                                <div className="text-sm text-slate-300 flex items-center gap-2">
+                                                                    <RefreshCw size={14} />
+                                                                    {vuln.modified ? new Date(vuln.modified).toLocaleDateString() : 'N/A'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {vuln.affected && vuln.affected[0]?.ranges && (
+                                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                                {vuln.affected[0].ranges.map((range, idx) => (
+                                                                    <div key={idx} className="text-xs bg-slate-900 px-2 py-1 rounded border border-slate-800 text-slate-400 font-mono">
+                                                                        Affected: {range.events?.find(e => e.introduced)?.introduced || '?'} - {range.events?.find(e => e.fixed)?.fixed || '?'}
+                                                                    </div>
+                                                                ))}
+                                                                {vuln.affected[0].ranges.some(r => r.events?.some(e => e.fixed)) && (
+                                                                    <div className="text-xs bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 text-emerald-400 font-bold flex items-center gap-1">
+                                                                        <Check size={10} />
+                                                                        Fixed in: {vuln.affected[0].ranges.find(r => r.events?.some(e => e.fixed))?.events.find(e => e.fixed).fixed}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {vuln.references && vuln.references.length > 0 && (
+                                                            <div className="border-t border-slate-800/50 pt-3 mt-2">
+                                                                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">References</div>
+                                                                <div className="flex flex-col gap-1.5">
+                                                                    {vuln.references.slice(0, 3).map((ref, i) => (
+                                                                        <a key={i} href={ref.url} target="_blank" rel="noreferrer" className="text-xs text-primary-400 hover:text-primary-300 truncate flex items-center gap-2 hover:underline">
+                                                                            <ExternalLink size={10} /> {ref.url}
+                                                                        </a>
+                                                                    ))}
+                                                                    {vuln.references.length > 3 && (
+                                                                        <span className="text-xs text-slate-600 italic">+{vuln.references.length - 3} more references</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                                            <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 mb-4">
+                                                <ShieldCheck size={32} />
+                                            </div>
+                                            <h4 className="text-white font-bold mb-1">No Known Vulnerabilities</h4>
+                                            <p className="text-slate-500 text-sm max-w-xs">
+                                                No security issues were found for this version in the OSV database.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -928,21 +1158,30 @@ const DependencyAnalyzer = () => {
                 </div>
                 <div className="flex items-center gap-3">
                     {data && (
-                        <button
-                            onClick={checkForUpdates}
-                            disabled={isCheckingUpdates}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${isCheckingUpdates ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'}`}
-                        >
-                            <RefreshCw size={14} className={isCheckingUpdates ? "animate-spin" : ""} />
-                            {isCheckingUpdates ? 'Checking...' : 'Check Updates'}
-                        </button>
+                        <>
+                            <button
+                                onClick={checkAllVulnerabilities}
+                                disabled={isCheckingVulns}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${isCheckingVulns ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20'}`}
+                            >
+                                <ShieldAlert size={14} className={isCheckingVulns ? "animate-pulse" : ""} />
+                                {isCheckingVulns ? 'Scanning...' : 'Scan Vulns'}
+                            </button>
+                            <button
+                                onClick={checkForUpdates}
+                                disabled={isCheckingUpdates}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${isCheckingUpdates ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'}`}
+                            >
+                                <RefreshCw size={14} className={isCheckingUpdates ? "animate-spin" : ""} />
+                                {isCheckingUpdates ? 'Checking...' : 'Check Updates'}
+                            </button>
+                            <button onClick={reset} className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 hover:text-white transition-colors text-sm font-medium">
+                                <Upload size={14} />
+                                New Scan
+                            </button>
+                        </>
                     )}
-                    {data && (
-                        <button onClick={reset} className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 hover:text-white transition-colors text-sm font-medium">
-                            <Upload size={14} />
-                            New Scan
-                        </button>
-                    )}
+
                 </div>
             </div>
 
@@ -1070,18 +1309,57 @@ const DependencyAnalyzer = () => {
                                         Direct deps only. Use package-lock.json for full tree.
                                     </div>
                                 )}
-                                <div className="relative w-full md:w-auto">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                                    <input
-                                        type="text"
-                                        placeholder="Search..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full md:w-64 bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-slate-200 focus:outline-none focus:border-primary-500 transition-all"
-                                    />
+                                <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search dependencies..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="bg-slate-800 text-white pl-10 pr-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-64 border border-slate-700"
+                                        />
+                                    </div>
+                                    {totalVulnerabilities > 0 && (
+                                        <button
+                                            onClick={() => setShowVulnerableOnly(!showVulnerableOnly)}
+                                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border ${showVulnerableOnly ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'}`}
+                                        >
+                                            <Filter size={14} />
+                                            {showVulnerableOnly ? 'Show All' : 'Vulnerable Only'}
+                                            <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1 font-bold">
+                                                {vulnerablePackagesCount}
+                                            </span>
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
+
+                        {/* Vulnerability Summary Banner */}
+                        {totalVulnerabilities > 0 && (
+                            <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-3 flex items-center justify-between animate-fade-in">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-1.5 bg-red-500/20 rounded-lg text-red-500">
+                                        <ShieldAlert size={18} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-red-400 font-bold text-sm">Security Alert</h3>
+                                        <p className="text-red-400/70 text-xs">
+                                            Found <span className="font-bold text-red-400">{totalVulnerabilities}</span> vulnerabilities across <span className="font-bold text-red-400">{vulnerablePackagesCount}</span> packages.
+                                        </p>
+                                    </div>
+                                </div>
+                                {!showVulnerableOnly && (
+                                    <button
+                                        onClick={() => setShowVulnerableOnly(true)}
+                                        className="text-xs font-medium text-red-400 hover:text-red-300 underline underline-offset-2"
+                                    >
+                                        Filter Vulnerable Packages
+                                    </button>
+                                )}
+                            </div>
+                        )}
 
                         {/* View Toggle */}
                         <div className="px-6 pb-4 flex justify-end">
@@ -1162,7 +1440,7 @@ const DependencyAnalyzer = () => {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-800/50">
-                                                {filteredData.map((pkg, idx) => {
+                                                {sortedData.map((pkg, idx) => {
                                                     const details = pkgDetails[pkg.name];
                                                     return (
                                                         <tr
@@ -1180,6 +1458,12 @@ const DependencyAnalyzer = () => {
                                                                             {pkg.name}
                                                                             {updates[pkg.name] && updates[pkg.name].latest !== pkg.version.replace(/[\^~]/, '') && (
                                                                                 <span className="flex h-2 w-2 rounded-full bg-orange-500" title={`Update available: ${updates[pkg.name].latest}`}></span>
+                                                                            )}
+                                                                            {details?.vulnerabilities?.length > 0 && (
+                                                                                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse">
+                                                                                    <ShieldAlert size={10} />
+                                                                                    {details.vulnerabilities.length}
+                                                                                </span>
                                                                             )}
                                                                         </div>
                                                                         <div className="text-xs text-slate-500">{pkg.description || 'No description'}</div>
@@ -1226,7 +1510,7 @@ const DependencyAnalyzer = () => {
                                                         </tr>
                                                     );
                                                 })}
-                                                {filteredData.length === 0 && (
+                                                {sortedData.length === 0 && (
                                                     <tr>
                                                         <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
                                                             No dependencies found matching "{searchQuery}"
