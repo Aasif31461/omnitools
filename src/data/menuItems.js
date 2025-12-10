@@ -25,7 +25,8 @@ import {
     Wifi,
     Wrench,
     TrendingUp,
-    Package
+    Package,
+    CalendarCheck
 } from 'lucide-react';
 
 export const menuItems = [
@@ -83,4 +84,13 @@ export const menuItems = [
         keywords: 'link, extractor, whatsapp, calendar, parser',
         colorClass: 'text-indigo-400'
     },
+    {
+        id: 'attendance',
+        label: 'Attendance',
+        icon: CalendarCheck,
+        group: 'util',
+        description: 'Track employee attendance',
+        keywords: 'attendance, employee, track, excel, pdf',
+        colorClass: 'text-blue-500 bg-blue-100'
+    }
 ];

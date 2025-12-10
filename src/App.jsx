@@ -38,6 +38,7 @@ import FinanceSuite from './components/FinanceSuite';
 import InvestSuite from './components/InvestSuite';
 import SmartUtilities from './components/SmartUtilities';
 import DependencyAnalyzer from './components/DependencyAnalyzer';
+import AttendanceTracker from './components/AttendanceTracker';
 import Toast from './components/Toast';
 
 const NavButton = ({ item, isActive, onClick, mobile = false }) => (
@@ -101,6 +102,8 @@ export default function App() {
         return <SmartUtilities showToast={showToast} />;
       case 'dependency-analyzer':
         return <DependencyAnalyzer />;
+      case 'attendance':
+        return <AttendanceTracker />;
       default: return <Dashboard changeTool={setActiveTool} />;
     }
   };

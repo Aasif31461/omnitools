@@ -1,0 +1,375 @@
+import React, { useState, useMemo } from 'react';
+import { 
+  Plus, 
+  Trash2, 
+  Users, 
+  ChevronLeft, 
+  ChevronRight,
+  FileSpreadsheet
+} from 'lucide-react';
+
+const AttendanceTracker = () => {
+  // --- State Configuration ---
+  const [title, setTitle] = useState("Araya Samaj - Glover Sweets");
+  const [currentDate, setCurrentDate] = useState(new Date(2025, 10, 1)); // Default to Nov 2025 as per image
+  const [employees, setEmployees] = useState([
+    { id: 1, name: "Mukesh", attendance: { 1: 'P', 2: 'P', 3: 'P', 4: 'P', 5: 'P', 6: 'P', 7: 'P', 10: 'P', 12: 'P', 14: 'P', 15: 'P', 20: 'P', 22: 'P', 23: 'P' } },
+    { id: 2, name: "Gyani", attendance: { 1: 'P', 2: 'P', 4: 'P', 5: 'P', 6: 'P', 7: 'P', 8: 'P', 9: 'P', 10: 'P', 11: 'P', 12: 'P', 13: 'P', 17: 'P', 18: 'P', 19: 'P', 20: 'P', 22: 'P', 24: 'P', 25: 'P', 26: 'P', 27: 'P', 28: 'P', 29: 'P' } },
+    { id: 3, name: "Munna", attendance: { 3: 'P' } },
+    { id: 4, name: "Maneetra", attendance: { 1: 'P', 2: 'P', 4: 'P', 5: 'P', 6: 'P', 9: 'P', 10: 'P', 11: 'P', 18: 'P', 19: 'P', 20: 'P', 22: 'P', 25: 'P', 26: 'P', 27: 'P', 28: 'P', 29: 'P', 30: 'P' } },
+  ]);
+  const [newEmployeeName, setNewEmployeeName] = useState("");
+
+  // --- Derived State (Date Logic) ---
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth(); // 0-indexed
+
+  const daysInMonth = useMemo(() => {
+    return new Date(year, month + 1, 0).getDate();
+  }, [year, month]);
+
+  const monthName = currentDate.toLocaleString('default', { month: 'long' });
+
+  const daysArray = useMemo(() => {
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const date = new Date(year, month, i + 1);
+      return {
+        date: i + 1,
+        dayName: date.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 2) // Su, Mo, Tu
+      };
+    });
+  }, [year, month, daysInMonth]);
+
+  // --- Handlers ---
+  const handleMonthChange = (direction) => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(currentDate.getMonth() + direction);
+    setCurrentDate(newDate);
+  };
+
+  const addEmployee = (e) => {
+    e.preventDefault();
+    if (!newEmployeeName.trim()) return;
+    const newId = employees.length > 0 ? Math.max(...employees.map(e => e.id)) + 1 : 1;
+    setEmployees([...employees, { id: newId, name: newEmployeeName, attendance: {} }]);
+    setNewEmployeeName("");
+  };
+
+  const removeEmployee = (id) => {
+    setEmployees(employees.filter(e => e.id !== id));
+  };
+
+  const toggleAttendance = (empId, day) => {
+    setEmployees(employees.map(emp => {
+      if (emp.id === empId) {
+        const currentStatus = emp.attendance[day];
+        let nextStatus;
+        // Cycle: P -> A -> Empty
+        if (currentStatus === 'P') nextStatus = 'A';
+        else if (currentStatus === 'A') nextStatus = undefined;
+        else nextStatus = 'P';
+        
+        return { ...emp, attendance: { ...emp.attendance, [day]: nextStatus } };
+      }
+      return emp;
+    }));
+  };
+
+  const getStatusColor = (status) => {
+    // Matching the Excel style strictly: Simple text, no heavy background in cells unless needed
+    if (status === 'P') return 'text-black font-bold';
+    if (status === 'A') return 'text-red-600 font-bold';
+    return 'hover:bg-blue-50';
+  };
+
+  const getCounts = (attendance) => {
+    const p = Object.values(attendance).filter(v => v === 'P').length;
+    const a = Object.values(attendance).filter(v => v === 'A').length;
+    return { p, a };
+  };
+
+  // --- Native Excel Export Logic (Exact Visual Replica) ---
+  const generateExcel = () => {
+    const deepBlue = "#365f91"; // The exact blue from your image
+    const lightBlue = "#dce6f1"; // The legend background color
+    
+    const tableRows = employees.map(emp => {
+      const { p, a } = getCounts(emp.attendance);
+      
+      const dayCells = daysArray.map(day => {
+        const status = emp.attendance[day.date] || '';
+        let style = 'text-align: center; border: 1px solid #999; font-size: 11px;';
+        if (status === 'P') style += 'color: black;';
+        if (status === 'A') style += 'color: red;'; 
+        return `<td style="${style}">${status}</td>`;
+      }).join('');
+
+      return `
+        <tr>
+          <td style="text-align: center; border: 1px solid #999; padding: 4px;">${emp.id}</td>
+          <td style="text-align: left; border: 1px solid #999; padding: 4px;">${emp.name}</td>
+          ${dayCells}
+          <td style="text-align: center; border: 1px solid #999; background-color: #dce6f1;">${p}</td>
+          <td style="text-align: center; border: 1px solid #999; background-color: #dce6f1;">${a || '-'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const htmlContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>${monthName}</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+      </head>
+      <body>
+        <table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif;">
+          
+          <!-- Top Banner -->
+          <tr>
+            <td colspan="${daysArray.length + 4}" style="background-color: ${deepBlue}; color: white; font-size: 24px; font-weight: bold; text-align: center; height: 50px; vertical-align: middle;">
+              Monthly Attendance - Employees
+            </td>
+          </tr>
+
+          <!-- Legend and Date Row -->
+          <tr>
+            <!-- Spacer/Legend Area -->
+            <td colspan="5"></td>
+            <td colspan="4" style="background-color: ${lightBlue}; text-align: center; border: 1px solid #999;">A - Absent</td>
+            <td colspan="4" style="background-color: ${lightBlue}; text-align: center; border: 1px solid #999;">P - Present</td>
+            <td colspan="${daysArray.length - 11}"></td>
+            
+            <!-- Month/Year Box -->
+            <td colspan="2" style="text-align: right; font-weight: bold;">Month</td>
+            <td colspan="2" style="text-align: center; font-weight: bold; border: 1px solid #999;">${monthName}</td>
+          </tr>
+          <tr>
+            <td colspan="${daysArray.length + 2}"></td>
+            <td colspan="2" style="text-align: right; font-weight: bold;">Year</td>
+            <td colspan="2" style="text-align: center; border: 1px solid #999;">${year}</td>
+          </tr>
+
+          <!-- Main Title -->
+          <tr>
+            <td colspan="${daysArray.length + 4}" style="font-size: 16px; font-weight: bold; text-align: center; height: 40px; vertical-align: middle;">
+              ${title}
+            </td>
+          </tr>
+
+          <!-- Table Headers 1: Employees, Day Names, Totals -->
+          <tr style="background-color: ${deepBlue}; color: white;">
+            <td colspan="2" style="font-weight: bold; padding: 5px; border: 1px solid #999;">Employees</td>
+            ${daysArray.map(d => `<td style="font-weight: bold; text-align: center; border: 1px solid #999; font-size: 10px;">${d.dayName}</td>`).join('')}
+            <td colspan="2" style="font-weight: bold; text-align: center; border: 1px solid #999;">Totals</td>
+          </tr>
+
+          <!-- Table Headers 2: ID/Name, Dates, P/A -->
+          <tr style="background-color: ${deepBlue}; color: white;">
+            <td style="font-weight: bold; text-align: center; border: 1px solid #999; width: 50px;">ID</td>
+            <td style="font-weight: bold; text-align: left; border: 1px solid #999; width: 150px;">Name</td>
+            ${daysArray.map(d => `<td style="font-weight: bold; text-align: center; border: 1px solid #999; width: 30px;">${d.date}</td>`).join('')}
+            <td style="font-weight: bold; text-align: center; border: 1px solid #999; width: 40px;">P</td>
+            <td style="font-weight: bold; text-align: center; border: 1px solid #999; width: 40px;">A</td>
+          </tr>
+
+          <!-- Data Rows -->
+          ${tableRows}
+          
+          <!-- Footer Totals -->
+          <tr style="background-color: #e0e0e0; font-weight: bold;">
+             <td colspan="${daysArray.length + 2}" style="text-align: right; padding-right: 10px;">Totals</td>
+             <td style="text-align: center; border: 1px solid #999;">
+                ${employees.reduce((acc, emp) => acc + getCounts(emp.attendance).p, 0)}
+             </td>
+              <td style="text-align: center; border: 1px solid #999;"></td>
+          </tr>
+
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${title.replace(/ /g, '_')}_${monthName}_${year}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-4 font-sans">
+      
+      {/* Top Banner */}
+      <div className="bg-[#365f91] text-white text-center py-3 text-3xl font-bold shadow-sm">
+        Monthly Attendance - Employees
+      </div>
+
+      {/* Controls Bar */}
+      <div className="bg-white p-4 shadow-sm border-b border-gray-200 flex flex-wrap gap-4 justify-between items-start">
+        
+        {/* Left: Legend */}
+        <div className="flex gap-0 text-sm font-medium border border-gray-300 rounded overflow-hidden">
+          <div className="bg-[#dce6f1] px-4 py-2 border-r border-gray-300">A - Absent</div>
+          <div className="bg-[#dce6f1] px-4 py-2">P - Present</div>
+        </div>
+
+        {/* Center: Title Input */}
+        <div className="flex-1 text-center">
+             <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="text-xl font-bold text-center w-full border-b-2 border-transparent hover:border-blue-300 focus:border-[#365f91] focus:outline-none"
+              />
+        </div>
+
+        {/* Right: Date & Export */}
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center border border-gray-300 bg-white shadow-sm">
+            <div className="bg-gray-50 px-3 py-1 text-sm font-bold text-gray-600 border-r">Month</div>
+            <div className="flex items-center px-2">
+              <button onClick={() => handleMonthChange(-1)}><ChevronLeft size={16}/></button>
+              <span className="w-24 text-center font-bold">{monthName}</span>
+              <button onClick={() => handleMonthChange(1)}><ChevronRight size={16}/></button>
+            </div>
+          </div>
+          <div className="flex items-center border border-gray-300 bg-white shadow-sm">
+            <div className="bg-gray-50 px-3 py-1 text-sm font-bold text-gray-600 border-r min-w-[58px] text-right">Year</div>
+            <div className="px-4 font-bold">{year}</div>
+          </div>
+           <button
+              onClick={generateExcel}
+              className="mt-2 flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-medium shadow transition-all"
+            >
+              <FileSpreadsheet size={16} />
+              Download Excel
+            </button>
+        </div>
+      </div>
+
+      {/* Main Grid */}
+      <div className="overflow-x-auto bg-white shadow-lg pb-8">
+        <div className="min-w-max">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              {/* Header Row 1: Employees | Days | Totals */}
+              <tr className="bg-[#365f91] text-white">
+                <th colSpan={2} className="p-2 text-left border-r border-blue-400 pl-4">Employees</th>
+                {daysArray.map((day) => (
+                  <th key={day.date} className="p-1 text-center font-normal text-xs border-r border-blue-400 w-8">
+                    {day.dayName}
+                  </th>
+                ))}
+                <th colSpan={2} className="p-2 text-center border-l border-blue-400">Totals</th>
+                <th className="bg-white"></th> 
+              </tr>
+
+              {/* Header Row 2: ID/Name | Dates | P/A */}
+              <tr className="bg-[#365f91] text-white text-xs">
+                <th className="p-2 text-left w-12 border-r border-blue-400 pl-4 font-normal">ID</th>
+                <th className="p-2 text-left w-48 border-r border-blue-400 font-normal">Name</th>
+                {daysArray.map((day) => (
+                  <th key={day.date} className="p-1 text-center font-normal border-r border-blue-400">
+                    {day.date}
+                  </th>
+                ))}
+                <th className="p-2 text-center w-10 font-bold border-r border-blue-400">P</th>
+                <th className="p-2 text-center w-10 font-bold">A</th>
+                <th className="bg-white"></th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-gray-200">
+              {employees.map((emp) => {
+                 const { p, a } = getCounts(emp.attendance);
+                 return (
+                  <tr key={emp.id} className="hover:bg-gray-50 group">
+                    <td className="p-1 pl-4 border-r border-gray-200 text-gray-600">{emp.id}</td>
+                    <td className="p-1 border-r border-gray-200 font-medium">{emp.name}</td>
+                    
+                    {daysArray.map((day) => (
+                      <td key={day.date} className="border-r border-gray-200 p-0 text-center">
+                        <button
+                          onClick={() => toggleAttendance(emp.id, day.date)}
+                          className={`w-full h-8 flex items-center justify-center text-xs transition-all ${getStatusColor(emp.attendance[day.date])}`}
+                        >
+                          {emp.attendance[day.date]}
+                        </button>
+                      </td>
+                    ))}
+
+                    <td className="p-1 text-center bg-gray-100 font-medium border-r border-gray-200 text-gray-700">
+                      {p > 0 ? p : ''}
+                    </td>
+                    <td className="p-1 text-center bg-gray-100 font-medium text-gray-700">
+                      {a > 0 ? a : '-'}
+                    </td>
+                    
+                    <td className="p-1 pl-2">
+                       <button 
+                        onClick={() => removeEmployee(emp.id)}
+                        className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {/* Add Employee Row */}
+              <tr className="bg-gray-50">
+                <td className="p-2 pl-4 border-r border-gray-200 text-gray-400">#</td>
+                <td className="p-1 border-r border-gray-200" colSpan={1}>
+                   <form onSubmit={addEmployee} className="flex">
+                      <input
+                        type="text"
+                        value={newEmployeeName}
+                        onChange={(e) => setNewEmployeeName(e.target.value)}
+                        placeholder="Add Name..."
+                        className="w-full bg-transparent text-sm p-1 focus:outline-none"
+                      />
+                      <button type="submit" className="text-blue-600 px-2"><Plus size={16}/></button>
+                   </form>
+                </td>
+                <td colSpan={daysArray.length + 3} className="bg-gray-50"></td>
+              </tr>
+              
+              {/* Grand Total Row */}
+              <tr className="bg-gray-200 font-bold text-gray-700 text-sm">
+                 <td colSpan={2} className="p-2 text-right pr-4">Totals</td>
+                 <td colSpan={daysArray.length} className="bg-gray-200"></td>
+                 <td className="text-center p-2 border-l border-gray-300">
+                   {employees.reduce((acc, emp) => acc + getCounts(emp.attendance).p, 0)}
+                 </td>
+                 <td className="text-center p-2 border-l border-gray-300">
+                    {employees.reduce((acc, emp) => acc + getCounts(emp.attendance).a, 0)}
+                 </td>
+                 <td></td>
+              </tr>
+
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AttendanceTracker;
