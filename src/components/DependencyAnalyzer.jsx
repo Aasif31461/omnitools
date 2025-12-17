@@ -4,7 +4,7 @@ import {
     ChevronDown, ShieldCheck, ShieldAlert, X, ExternalLink,
     GitBranch, Tag, Calendar, Layers, Box, Info, Terminal,
     Download, Globe, User, Code, Database, Cpu, ArrowUpDown, ArrowUp, ArrowDown,
-    List, GitGraph, Plus, Minus, Maximize, RefreshCw, Copy, Check, Filter
+    List, GitGraph, Plus, Minus, Maximize, RefreshCw, Copy, Check, Filter, ArrowRight
 } from 'lucide-react';
 
 // --- Utility Components ---
@@ -47,6 +47,126 @@ const StatCard = ({ label, value, icon: Icon, color = "blue", subtext = "" }) =>
             </div>
         </div>
     );
+};
+
+// --- Helper Components ---
+const SimpleMarkdown = ({ content }) => {
+    if (!content) return null;
+
+    // Split by newlines and process
+    const lines = content.split('\n');
+    let inList = false;
+
+    return (
+        <div className="text-sm text-slate-400 leading-relaxed space-y-2">
+            {lines.map((line, idx) => {
+                // Headers (### )
+                if (line.trim().startsWith('### ')) {
+                    return <h4 key={idx} className="text-white font-bold mt-4 mb-2 text-base">{line.replace('### ', '')}</h4>;
+                }
+
+                // Bold (**text**) - basic replacement for key terms
+                const parts = line.split(/(\*\*.*?\*\*)/g);
+                const processedLine = parts.map((part, i) => {
+                    if (part.startsWith('**') && part.endsWith('**')) {
+                        return <strong key={i} className="text-slate-200 font-semibold">{part.slice(2, -2)}</strong>;
+                    }
+                    // Links ([text](url)) - basic regex
+                    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                    const linkParts = [];
+                    let lastIndex = 0;
+                    let match;
+                    while ((match = linkRegex.exec(part)) !== null) {
+                        if (match.index > lastIndex) {
+                            linkParts.push(part.slice(lastIndex, match.index));
+                        }
+                        linkParts.push(
+                            <a key={`${i}-${lastIndex}`} href={match[2]} target="_blank" rel="noreferrer" className="text-primary-400 hover:text-primary-300 hover:underline">
+                                {match[1]}
+                            </a>
+                        );
+                        lastIndex = linkRegex.lastIndex;
+                    }
+                    if (lastIndex < part.length) {
+                        linkParts.push(part.slice(lastIndex));
+                    }
+                    return linkParts.length > 0 ? linkParts : part;
+                });
+
+                // List Items (* or - )
+                if (line.trim().startsWith('* ') || line.trim().startsWith('- ')) {
+                    return (
+                        <div key={idx} className="flex items-start gap-2 ml-2">
+                            <div className="w-1 h-1 rounded-full bg-slate-500 mt-2 shrink-0" />
+                            <span>{processedLine}</span>
+                        </div>
+                    );
+                }
+
+                // Empty lines
+                if (!line.trim()) return <div key={idx} className="h-2" />;
+
+                return <div key={idx}>{processedLine}</div>;
+            })}
+        </div>
+    );
+};
+
+// --- Helper Logic ---
+const parseVersion = (v) => {
+    if (!v) return [0, 0, 0];
+    const clean = v.replace(/^[^\d]+/, '').split('-')[0]; // Remove prefixes like ^, ~ and suffixes like -next
+    return clean.split('.').map(n => parseInt(n, 10) || 0);
+};
+
+// Returns 1 if v1 > v2, -1 if v1 < v2, 0 if equal
+const compareVersions = (v1, v2) => {
+    const p1 = parseVersion(v1);
+    const p2 = parseVersion(v2);
+
+    for (let i = 0; i < 3; i++) {
+        if (p1[i] > p2[i]) return 1;
+        if (p1[i] < p2[i]) return -1;
+    }
+    return 0; // Equal
+};
+
+const isVersionAffected = (version, range) => {
+    // Basic implementation for "introduced" and "fixed" events
+    const events = range.events || [];
+    let introduced = '0.0.0';
+    let fixed = null;
+
+    events.forEach(e => {
+        if (e.introduced) introduced = e.introduced;
+        if (e.fixed) fixed = e.fixed;
+    });
+
+    // Check if version >= introduced
+    const gteIntro = compareVersions(version, introduced) >= 0;
+
+    // Check if version < fixed (if fixed is defined)
+    const ltFixed = fixed ? compareVersions(version, fixed) < 0 : true;
+
+    return gteIntro && ltFixed;
+};
+
+const getApplicableFix = (currentVersion, affectedList) => {
+    if (!affectedList || affectedList.length === 0) return null;
+
+    // Iterate through all affected ranges to find the one that matches our current version
+    for (const item of affectedList) {
+        if (item.ranges) {
+            for (const range of item.ranges) {
+                if (isVersionAffected(currentVersion, range)) {
+                    // Found the range triggering this vulnerability
+                    const fixedEvent = range.events?.find(e => e.fixed);
+                    if (fixedEvent) return fixedEvent.fixed;
+                }
+            }
+        }
+    }
+    return null; // No applicable fix found (or unknown)
 };
 
 // --- Main Component ---
@@ -597,7 +717,11 @@ const DependencyAnalyzer = () => {
 
     const fetchPackageDetails = async (name, version) => {
         // If we already have details for this specific version, don't refetch
-        if (pkgDetails[name] && pkgDetails[name].versionChecked === version) return;
+        // UNLESS the vulnerability data is incomplete (missing summary/details from batch scan)
+        if (pkgDetails[name] && pkgDetails[name].versionChecked === version) {
+            const hasIncompleteVulns = pkgDetails[name].vulnerabilities?.some(v => !v.summary && !v.details);
+            if (!hasIncompleteVulns) return;
+        }
 
         setLoadingDetails(true);
         try {
@@ -829,7 +953,7 @@ const DependencyAnalyzer = () => {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setSelectedPkg(null)} />
-                <div className="relative w-full max-w-2xl max-h-[85vh] bg-slate-900/95 backdrop-blur-xl border border-slate-800 shadow-2xl rounded-2xl transform transition-all overflow-hidden flex flex-col">
+                <div className="relative w-full max-w-4xl max-h-[85vh] bg-slate-900/95 backdrop-blur-xl border border-slate-800 shadow-2xl rounded-2xl transform transition-all overflow-hidden flex flex-col">
                     <div className="p-6 flex-1 flex flex-col overflow-y-auto custom-scrollbar">
                         <button onClick={() => setSelectedPkg(null)} className="absolute top-4 right-4 p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors z-10">
                             <X size={20} />
@@ -1009,13 +1133,18 @@ const DependencyAnalyzer = () => {
                                             <div className="h-20 bg-slate-800 rounded-xl"></div>
                                         </div>
                                     ) : hasVulnerabilities ? (
-                                        <div className="space-y-4 p-4">
-                                            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
-                                                <ShieldAlert className="text-red-400 shrink-0 mt-0.5" size={20} />
+                                        <div className="space-y-6 p-4 sm:p-6">
+
+                                            {/* Top Summary Card */}
+                                            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-5 flex items-start gap-4">
+                                                <div className="p-3 bg-red-500/20 rounded-lg text-red-500 shrink-0">
+                                                    <ShieldAlert size={24} />
+                                                </div>
                                                 <div>
-                                                    <h4 className="text-red-400 font-bold text-sm">Security Issues Found</h4>
-                                                    <p className="text-red-400/80 text-xs mt-1">
-                                                        This version of {selectedPkg.name} has {vulnerabilities.length} known vulnerabilit{vulnerabilities.length === 1 ? 'y' : 'ies'}.
+                                                    <h4 className="text-red-400 font-bold text-lg mb-1">Security Issues Found</h4>
+                                                    <p className="text-red-300/80 text-sm leading-relaxed">
+                                                        This version of <span className="font-mono bg-red-500/10 px-1 py-0.5 rounded text-red-300">{selectedPkg.name}</span> has {vulnerabilities.length} known vulnerabilit{vulnerabilities.length === 1 ? 'y' : 'ies'}.
+                                                        Recommended action: upgrade to a patched version immediately.
                                                     </p>
                                                 </div>
                                             </div>
@@ -1023,103 +1152,118 @@ const DependencyAnalyzer = () => {
                                             {vulnerabilities.map((vuln) => {
                                                 const severity = vuln.database_specific?.severity || "UNKNOWN";
                                                 const severityColor = {
-                                                    CRITICAL: "bg-red-500 text-white border-red-600",
-                                                    HIGH: "bg-orange-500 text-white border-orange-600",
-                                                    MODERATE: "bg-yellow-500 text-black border-yellow-600",
+                                                    CRITICAL: "bg-red-500 text-white border-red-600 shadow-red-500/20",
+                                                    HIGH: "bg-orange-600 text-white border-orange-600 shadow-orange-600/20",
+                                                    MODERATE: "bg-yellow-500 text-black border-yellow-600 shadow-yellow-500/20",
                                                     LOW: "bg-slate-500 text-white border-slate-600",
                                                     UNKNOWN: "bg-slate-700 text-slate-300 border-slate-600"
                                                 }[severity.toUpperCase()] || "bg-slate-700 text-slate-300 border-slate-600";
 
+                                                const applicableFix = getApplicableFix(currentVer, vuln.affected);
+
                                                 return (
-                                                    <div key={vuln.id} className="bg-slate-950/50 border border-slate-800 rounded-xl p-5 hover:border-red-500/30 transition-colors">
-                                                        <div className="flex items-start justify-between gap-4 mb-3">
-                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${severityColor}`}>
+                                                    <div key={vuln.id} className="bg-slate-950/40 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-all shadow-sm">
+
+                                                        {/* Vuln Header */}
+                                                        <div className="p-5 border-b border-slate-800/50 bg-slate-900/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider border shadow-lg ${severityColor}`}>
                                                                     {severity}
                                                                 </span>
-                                                                <span className="text-sm font-bold text-white font-mono">{vuln.id}</span>
-                                                                {vuln.aliases && vuln.aliases.length > 0 && (
-                                                                    <span className="text-xs text-slate-500">({vuln.aliases[0]})</span>
-                                                                )}
+                                                                <span className="text-slate-400 font-mono text-sm">
+                                                                    {vuln.id}
+                                                                    {vuln.aliases && vuln.aliases.length > 0 && (
+                                                                        <span className="ml-2 opacity-75">({vuln.aliases[0]})</span>
+                                                                    )}
+                                                                </span>
                                                             </div>
                                                             <a
                                                                 href={`https://osv.dev/vulnerability/${vuln.id}`}
                                                                 target="_blank"
                                                                 rel="noreferrer"
-                                                                className="text-xs text-primary-400 hover:text-primary-300 flex items-center gap-1 bg-slate-900 px-2 py-1 rounded border border-slate-800 hover:border-primary-500/50 transition-colors"
+                                                                className="text-xs font-medium text-primary-400 hover:text-white flex items-center gap-1.5 transition-colors self-start sm:self-auto"
                                                             >
-                                                                View on OSV <ExternalLink size={10} />
+                                                                View on OSV <ExternalLink size={12} />
                                                             </a>
                                                         </div>
 
-                                                        <h5 className="text-base font-semibold text-slate-200 mb-2">
-                                                            {vuln.summary || "No summary available"}
-                                                        </h5>
-
-                                                        <div className="text-sm text-slate-400 mb-4 leading-relaxed whitespace-pre-wrap font-sans">
-                                                            {vuln.details || "No details available."}
-                                                        </div>
-
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                                            <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800/50">
-                                                                <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Published</div>
-                                                                <div className="text-sm text-slate-300 flex items-center gap-2">
-                                                                    <Calendar size={14} />
-                                                                    {vuln.published ? new Date(vuln.published).toLocaleDateString() : 'N/A'}
+                                                        <div className="p-6 space-y-6">
+                                                            {/* Title */}
+                                                            <div>
+                                                                <h5 className="text-lg font-bold text-white mb-2 leading-snug">
+                                                                    {vuln.summary || "Security Vulnerability Detected"}
+                                                                </h5>
+                                                                <div className="flex flex-wrap gap-4 text-xs text-slate-500">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <Calendar size={14} />
+                                                                        Published: {vuln.published ? new Date(vuln.published).toLocaleDateString() : 'N/A'}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <RefreshCw size={14} />
+                                                                        Modified: {vuln.modified ? new Date(vuln.modified).toLocaleDateString() : 'N/A'}
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                            <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800/50">
-                                                                <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Modified</div>
-                                                                <div className="text-sm text-slate-300 flex items-center gap-2">
-                                                                    <RefreshCw size={14} />
-                                                                    {vuln.modified ? new Date(vuln.modified).toLocaleDateString() : 'N/A'}
+
+                                                            {/* Fix Info Banner */}
+                                                            <div className="bg-slate-900 rounded-xl p-4 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                                                <div className="flex flex-col gap-1">
+                                                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Current</span>
+                                                                    <span className="font-mono text-sm text-red-400 bg-red-500/10 px-2 py-0.5 rounded w-fit border border-red-500/20">
+                                                                        v{currentVer}
+                                                                    </span>
                                                                 </div>
-                                                            </div>
-                                                        </div>
 
-                                                        {vuln.affected && vuln.affected[0]?.ranges && (
-                                                            <div className="flex flex-wrap gap-2 mb-4">
-                                                                {vuln.affected[0].ranges.map((range, idx) => (
-                                                                    <div key={idx} className="text-xs bg-slate-900 px-2 py-1 rounded border border-slate-800 text-slate-400 font-mono">
-                                                                        Affected: {range.events?.find(e => e.introduced)?.introduced || '?'} - {range.events?.find(e => e.fixed)?.fixed || '?'}
-                                                                    </div>
-                                                                ))}
-                                                                {vuln.affected[0].ranges.some(r => r.events?.some(e => e.fixed)) && (
-                                                                    <div className="text-xs bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 text-emerald-400 font-bold flex items-center gap-1">
-                                                                        <Check size={10} />
-                                                                        Fixed in: {vuln.affected[0].ranges.find(r => r.events?.some(e => e.fixed))?.events.find(e => e.fixed).fixed}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
+                                                                <div className="hidden sm:block text-slate-700">
+                                                                    <ArrowRight size={20} />
+                                                                </div>
 
-                                                        {vuln.references && vuln.references.length > 0 && (
-                                                            <div className="border-t border-slate-800/50 pt-3 mt-2">
-                                                                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">References</div>
-                                                                <div className="flex flex-col gap-1.5">
-                                                                    {vuln.references.slice(0, 3).map((ref, i) => (
-                                                                        <a key={i} href={ref.url} target="_blank" rel="noreferrer" className="text-xs text-primary-400 hover:text-primary-300 truncate flex items-center gap-2 hover:underline">
-                                                                            <ExternalLink size={10} /> {ref.url}
-                                                                        </a>
-                                                                    ))}
-                                                                    {vuln.references.length > 3 && (
-                                                                        <span className="text-xs text-slate-600 italic">+{vuln.references.length - 3} more references</span>
+                                                                <div className="flex flex-col gap-1 w-full sm:w-auto">
+                                                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Fixed In</span>
+                                                                    {applicableFix ? (
+                                                                        <span className="font-mono text-sm text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded w-fit border border-emerald-500/20 flex items-center gap-2">
+                                                                            v{applicableFix} <Check size={12} />
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="font-mono text-sm text-slate-400 bg-slate-800 px-2 py-0.5 rounded w-fit">
+                                                                            Analysis inconclusive
+                                                                        </span>
                                                                     )}
                                                                 </div>
                                                             </div>
-                                                        )}
+
+                                                            {/* Markdown Details */}
+                                                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800/50">
+                                                                <SimpleMarkdown content={vuln.details} />
+                                                            </div>
+
+                                                            {/* References */}
+                                                            {vuln.references && vuln.references.length > 0 && (
+                                                                <div>
+                                                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">References</div>
+                                                                    <div className="grid grid-cols-1 gap-2">
+                                                                        {vuln.references.map((ref, i) => (
+                                                                            <a key={i} href={ref.url} target="_blank" rel="noreferrer" className="text-sm text-primary-400 hover:text-white truncate flex items-center gap-2 transition-colors group p-2 rounded hover:bg-slate-800">
+                                                                                <ExternalLink size={14} className="text-primary-500/50 group-hover:text-primary-400" />
+                                                                                <span className="truncate">{ref.url}</span>
+                                                                            </a>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 );
                                             })}
                                         </div>
                                     ) : (
-                                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                                            <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 mb-4">
-                                                <ShieldCheck size={32} />
+                                        <div className="flex flex-col items-center justify-center py-20 text-center">
+                                            <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 mb-6 border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
+                                                <ShieldCheck size={40} />
                                             </div>
-                                            <h4 className="text-white font-bold mb-1">No Known Vulnerabilities</h4>
-                                            <p className="text-slate-500 text-sm max-w-xs">
-                                                No security issues were found for this version in the OSV database.
+                                            <h4 className="text-2xl font-bold text-white mb-2">System Secure</h4>
+                                            <p className="text-slate-400 max-w-sm mx-auto leading-relaxed">
+                                                Based on the OSV database, no known vulnerabilities affect version <span className="font-mono text-emerald-400">v{currentVer}</span> of this package.
                                             </p>
                                         </div>
                                     )}
@@ -1181,6 +1325,7 @@ const DependencyAnalyzer = () => {
                             </button>
                         </>
                     )}
+
 
                 </div>
             </div>
