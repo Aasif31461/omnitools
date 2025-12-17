@@ -53,70 +53,178 @@ const StatCard = ({ label, value, icon: Icon, color = "blue", subtext = "" }) =>
 const SimpleMarkdown = ({ content }) => {
     if (!content) return null;
 
-    // Split by newlines and process
-    const lines = content.split('\n');
-    let inList = false;
+    // Pre-process content to handle code blocks and standardize line endings
+    const lines = content.replace(/\r\n/g, '\n').split('\n');
+
+    // Parser state
+    let inCodeBlock = false;
+    let codeBlockLanguage = '';
+    let codeBlockContent = [];
+
+    // Processed elements
+    const elements = [];
+    let currentKey = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Handle Code Blocks
+        if (line.trim().startsWith('```')) {
+            if (inCodeBlock) {
+                // End of code block
+                elements.push(
+                    <div key={currentKey++} className="my-4 rounded-lg overflow-hidden bg-slate-900 border border-slate-800">
+                        {codeBlockLanguage && (
+                            <div className="px-4 py-2 bg-slate-800/50 border-b border-slate-800 text-xs font-mono text-slate-400">
+                                {codeBlockLanguage}
+                            </div>
+                        )}
+                        <pre className="p-4 overflow-x-auto text-sm font-mono text-slate-300">
+                            <code>{codeBlockContent.join('\n')}</code>
+                        </pre>
+                    </div>
+                );
+                inCodeBlock = false;
+                codeBlockContent = [];
+                codeBlockLanguage = '';
+            } else {
+                // Start of code block
+                inCodeBlock = true;
+                codeBlockLanguage = line.slice(3).trim();
+            }
+            continue;
+        }
+
+        if (inCodeBlock) {
+            codeBlockContent.push(line);
+            continue;
+        }
+
+        // Handle Images ![alt](url)
+        const imageMatch = line.match(/^!\[(.*?)\]\((.*?)\)/);
+        if (imageMatch) {
+            elements.push(
+                <div key={currentKey++} className="my-4">
+                    <img
+                        src={imageMatch[2]}
+                        alt={imageMatch[1]}
+                        className="rounded-xl border border-slate-800 max-w-full h-auto shadow-lg bg-slate-900"
+                        loading="lazy"
+                    />
+                    {imageMatch[1] && <div className="text-center text-xs text-slate-500 mt-2">{imageMatch[1]}</div>}
+                </div>
+            );
+            continue;
+        }
+
+        // Handle Headers
+        if (line.startsWith('# ')) {
+            elements.push(<h2 key={currentKey++} className="text-2xl font-bold text-white mt-8 mb-4 border-b border-slate-800 pb-2">{line.slice(2)}</h2>);
+            continue;
+        }
+        if (line.startsWith('## ')) {
+            elements.push(<h3 key={currentKey++} className="text-xl font-bold text-white mt-6 mb-3">{line.slice(3)}</h3>);
+            continue;
+        }
+        if (line.startsWith('### ')) {
+            elements.push(<h4 key={currentKey++} className="text-lg font-semibold text-slate-200 mt-5 mb-2">{line.slice(4)}</h4>);
+            continue;
+        }
+
+        // Handle Blockquotes
+        if (line.startsWith('> ')) {
+            elements.push(
+                <blockquote key={currentKey++} className="border-l-4 border-primary-500 bg-slate-800/30 px-4 py-2 my-2 text-slate-300 italic">
+                    {line.slice(2)}
+                </blockquote>
+            );
+            continue;
+        }
+
+        // Handle Horizontal Rules
+        if (line.trim() === '---' || line.trim() === '***') {
+            elements.push(<hr key={currentKey++} className="border-slate-800 my-6" />);
+            continue;
+        }
+
+        // Handle Lists
+        if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+            elements.push(
+                <div key={currentKey++} className="flex items-start gap-2 ml-2 my-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary-500 mt-2 shrink-0" />
+                    <span className="text-slate-300">{processInlineMarkdown(line.replace(/^[-*]\s+/, ''))}</span>
+                </div>
+            );
+            continue;
+        }
+
+        // Handle Empty Lines
+        if (!line.trim()) {
+            elements.push(<div key={currentKey++} className="h-2" />);
+            continue;
+        }
+
+        // Standard Paragraph
+        elements.push(
+            <p key={currentKey++} className="text-sm text-slate-300 leading-relaxed my-1">
+                {processInlineMarkdown(line)}
+            </p>
+        );
+    }
 
     return (
-        <div className="text-sm text-slate-400 leading-relaxed space-y-2">
-            {lines.map((line, idx) => {
-                // Headers (### )
-                if (line.trim().startsWith('### ')) {
-                    return <h4 key={idx} className="text-white font-bold mt-4 mb-2 text-base">{line.replace('### ', '')}</h4>;
-                }
-
-                // Bold (**text**) - basic replacement for key terms
-                const parts = line.split(/(\*\*.*?\*\*)/g);
-                const processedLine = parts.map((part, i) => {
-                    if (part.startsWith('**') && part.endsWith('**')) {
-                        return <strong key={i} className="text-slate-200 font-semibold">{part.slice(2, -2)}</strong>;
-                    }
-                    // Links ([text](url)) - basic regex
-                    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-                    const linkParts = [];
-                    let lastIndex = 0;
-                    let match;
-                    while ((match = linkRegex.exec(part)) !== null) {
-                        if (match.index > lastIndex) {
-                            linkParts.push(part.slice(lastIndex, match.index));
-                        }
-                        linkParts.push(
-                            <a key={`${i}-${lastIndex}`} href={match[2]} target="_blank" rel="noreferrer" className="text-primary-400 hover:text-primary-300 hover:underline">
-                                {match[1]}
-                            </a>
-                        );
-                        lastIndex = linkRegex.lastIndex;
-                    }
-                    if (lastIndex < part.length) {
-                        linkParts.push(part.slice(lastIndex));
-                    }
-                    return linkParts.length > 0 ? linkParts : part;
-                });
-
-                // List Items (* or - )
-                if (line.trim().startsWith('* ') || line.trim().startsWith('- ')) {
-                    return (
-                        <div key={idx} className="flex items-start gap-2 ml-2">
-                            <div className="w-1 h-1 rounded-full bg-slate-500 mt-2 shrink-0" />
-                            <span>{processedLine}</span>
-                        </div>
-                    );
-                }
-
-                // Empty lines
-                if (!line.trim()) return <div key={idx} className="h-2" />;
-
-                return <div key={idx}>{processedLine}</div>;
-            })}
+        <div className="markdown-content">
+            {elements}
         </div>
     );
+};
+
+// Helper for inline styles (bold, code, links)
+const processInlineMarkdown = (text) => {
+    if (!text) return text;
+
+    // Split text by common markers to handle them reactively
+    // This is a simplified parser for bold (**), code (`), and links [text](url)
+
+    // First, let's handle code spans as they shouldn't contain other formatting
+    const parts = text.split(/(`[^`]+`)/);
+
+    return parts.map((part, i) => {
+        if (part.startsWith('`') && part.endsWith('`')) {
+            return <code key={i} className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 font-mono text-xs border border-slate-700">{part.slice(1, -1)}</code>;
+        }
+
+        // Process links and bold within non-code parts
+        // Simple regex-based splitter for links and bold
+        const subParts = part.split(/(\*\*.*?\*\*)|(\[.*?\]\(.*?\))/g).filter(Boolean);
+
+        return subParts.map((subPart, j) => {
+            // Bold
+            if (subPart.startsWith('**') && subPart.endsWith('**')) {
+                return <strong key={`${i}-${j}`} className="text-white font-semibold">{subPart.slice(2, -2)}</strong>;
+            }
+
+            // Link
+            const linkMatch = subPart.match(/^\[(.*?)\]\((.*?)\)$/);
+            if (linkMatch) {
+                return (
+                    <a key={`${i}-${j}`} href={linkMatch[2]} target="_blank" rel="noreferrer" className="text-primary-400 hover:text-primary-300 hover:underline font-medium inline-flex items-center gap-0.5">
+                        {linkMatch[1]} <ExternalLink size={10} />
+                    </a>
+                );
+            }
+
+            return subPart;
+        });
+    });
 };
 
 // --- Helper Logic ---
 const parseVersion = (v) => {
     if (!v) return [0, 0, 0];
     const clean = v.replace(/^[^\d]+/, '').split('-')[0]; // Remove prefixes like ^, ~ and suffixes like -next
-    return clean.split('.').map(n => parseInt(n, 10) || 0);
+    const parts = clean.split('.').map(n => parseInt(n, 10) || 0);
+    return [...parts, 0, 0, 0].slice(0, 3);
 };
 
 // Returns 1 if v1 > v2, -1 if v1 < v2, 0 if equal
@@ -151,11 +259,16 @@ const isVersionAffected = (version, range) => {
     return gteIntro && ltFixed;
 };
 
-const getApplicableFix = (currentVersion, affectedList) => {
+const getApplicableFix = (currentVersion, affectedList, ecosystem) => {
     if (!affectedList || affectedList.length === 0) return null;
 
-    // Iterate through all affected ranges to find the one that matches our current version
-    for (const item of affectedList) {
+    // Filter by ecosystem first (if provided)
+    const candidates = ecosystem
+        ? affectedList.filter(item => item.package?.ecosystem?.toLowerCase() === ecosystem.toLowerCase())
+        : affectedList;
+
+    // Iterate through candidates to find the one that matches our current version
+    for (const item of candidates) {
         if (item.ranges) {
             for (const range of item.ranges) {
                 if (isVersionAffected(currentVersion, range)) {
@@ -167,6 +280,85 @@ const getApplicableFix = (currentVersion, affectedList) => {
         }
     }
     return null; // No applicable fix found (or unknown)
+};
+
+// --- Manual Search UI Component ---
+
+const ManualSearchForm = ({ onSearch, loading }) => {
+    const [name, setName] = useState('');
+    const [version, setVersion] = useState('');
+    const [ecosystem, setEcosystem] = useState('npm');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (name) {
+            onSearch(name.trim(), version.trim(), ecosystem);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="w-full max-w-md flex flex-col gap-4">
+            <div className="flex gap-2">
+                <div className="flex-1 relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                        <Package size={16} />
+                    </div>
+                    <input
+                        type="text"
+                        name="packageName"
+                        id="packageName"
+                        placeholder="Package name (e.g. react)"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all"
+                        required
+                        autoComplete="off"
+                    />
+                </div>
+                <div className="w-1/3 relative">
+                    <select
+                        name="packageEcosystem"
+                        id="packageEcosystem"
+                        value={ecosystem}
+                        onChange={(e) => setEcosystem(e.target.value)}
+                        className="w-full h-full px-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-300 focus:outline-none focus:border-primary-500 appearance-none text-sm font-medium"
+                    >
+                        <option value="npm">NPM</option>
+                        <option value="Maven">Maven</option>
+                        <option value="PyPI">PyPI</option>
+                        <option value="Go">Go</option>
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                        <ChevronDown size={14} />
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex gap-2">
+                <div className="flex-1 relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-xs">v</div>
+                    <input
+                        type="text"
+                        name="packageVersion"
+                        id="packageVersion"
+                        placeholder="Version (optional)"
+                        value={version}
+                        onChange={(e) => setVersion(e.target.value)}
+                        className="w-full pl-8 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all"
+                        autoComplete="off"
+                    />
+                </div>
+                <button
+                    type="submit"
+                    disabled={loading || !name}
+                    className={`px-6 py-3 bg-primary-600 hover:bg-primary-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-primary-500/20 flex items-center gap-2 ${loading || !name ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                    {loading ? <RefreshCw size={18} className="animate-spin" /> : <Search size={18} />}
+                    Check
+                </button>
+            </div>
+        </form>
+    );
 };
 
 // --- Main Component ---
@@ -550,6 +742,34 @@ const DependencyAnalyzer = () => {
     const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
     const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'tree'
     const [viewMode, setViewMode] = useState('list'); // 'list', 'graph'
+    const [showManualSearch, setShowManualSearch] = useState(false);
+
+    // --- Manual Search Handler ---
+
+    const handleManualSearch = async (name, version, ecosystem) => {
+        // Map UI ecosystem names to OSV API ecosystem names
+        // Map UI ecosystem names to OSV API ecosystem names
+        let apiEcosystem = ecosystem;
+        // if (ecosystem === 'Gradle') apiEcosystem = 'Maven'; // Removed as UI only has Maven
+
+        // Validation: Prevent accidental paste of error logs or extremely long strings
+        if (name.length > 100 || name.includes('\n') || name.includes('Error:') || name.includes('Uncaught')) {
+            alert("Invalid package name. Please check your input.");
+            return;
+        }
+
+        // Construct a dummy package object
+        const pkg = {
+            name: name,
+            version: version || 'latest',
+            type: 'manual',
+            ecosystem: apiEcosystem
+        };
+
+        setSelectedPkg(pkg);
+        // Note: fetchPackageDetails will be called by the useEffect on selectedPkg
+        setShowManualSearch(false);
+    };
 
     // --- File Processing ---
 
@@ -715,55 +935,223 @@ const DependencyAnalyzer = () => {
 
     // --- API Integration ---
 
-    const fetchPackageDetails = async (name, version) => {
+    const fetchPackageDetails = async (name, version, ecosystem) => {
+        if (loadingDetails) return;
+
+        // Define versionChecked at the top level so it's accessible in finally block/state update
+        let versionChecked = version;
+
         // If we already have details for this specific version, don't refetch
         // UNLESS the vulnerability data is incomplete (missing summary/details from batch scan)
-        if (pkgDetails[name] && pkgDetails[name].versionChecked === version) {
+        if (pkgDetails[name] && pkgDetails[name].versionChecked === version && pkgDetails[name].ecosystem === ecosystem) {
             const hasIncompleteVulns = pkgDetails[name].vulnerabilities?.some(v => !v.summary && !v.details);
             if (!hasIncompleteVulns) return;
         }
 
         setLoadingDetails(true);
         try {
-            const results = await Promise.allSettled([
-                fetch(`https://registry.npmjs.org/${name}/latest`),
-                fetch(`https://api.npmjs.org/downloads/point/last-week/${name}`),
+            const promises = [
                 fetch('https://api.osv.dev/v1/query', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        package: { name: name, ecosystem: 'npm' },
+                        package: { name: name, ecosystem: ecosystem },
                         version: version
                     })
                 })
-            ]);
+            ];
 
-            const [metaResult, downloadsResult, vulnsResult] = results;
+            // Only fetch NPM registry data if it's actually an NPM package
+            if (ecosystem === 'npm') {
+                promises.push(fetch(`https://registry.npmjs.org/${name}/latest`));
+                promises.push(fetch(`https://api.npmjs.org/downloads/point/last-week/${name}`));
+            } else if (ecosystem === 'PyPI') {
+                promises.push(fetch(`https://pypi.org/pypi/${name}/json`));
+            } else if (ecosystem === 'Maven') {
+                // For Maven, use deps.dev
+                // Clean 'v' prefix if present (e.g. v11.0.0 -> 11.0.0) as Maven repos usually don't use it
+                let specificVersion = version;
+                if (specificVersion && specificVersion.startsWith('v') && /^v\d/.test(specificVersion)) {
+                    specificVersion = specificVersion.substring(1);
+                }
 
-            let meta = {};
-            if (metaResult.status === 'fulfilled' && metaResult.value.ok) {
-                try { meta = await metaResult.value.json(); } catch (e) { console.warn("Failed to parse meta json", e); }
+                // deps.dev doesn't support 'latest', we need to resolve it
+                if (version === 'latest' || !version) {
+                    try {
+                        const pkgRes = await fetch(`https://api.deps.dev/v3alpha/systems/maven/packages/${name}`);
+                        if (pkgRes.ok) {
+                            const pkgData = await pkgRes.json();
+                            // Pick the last version in the list (usually latest)
+                            if (pkgData.versions && pkgData.versions.length > 0) {
+                                specificVersion = pkgData.versions[pkgData.versions.length - 1].versionKey.version;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Failed to resolve latest version for Maven", e);
+                    }
+                }
+
+                versionChecked = specificVersion; // Update checked version
+
+                promises.push(fetch(`https://api.deps.dev/v3alpha/systems/maven/packages/${name}/versions/${encodeURIComponent(specificVersion)}`));
+            } else if (ecosystem === 'Go') {
+                // For Go, use deps.dev
+                let specificVersion = version;
+
+                // deps.dev doesn't support 'latest', we need to resolve it
+                if (version === 'latest' || !version) {
+                    try {
+                        const pkgRes = await fetch(`https://api.deps.dev/v3alpha/systems/go/packages/${encodeURIComponent(name)}`);
+                        if (pkgRes.ok) {
+                            const pkgData = await pkgRes.json();
+                            // Pick the last version in the list (usually latest)
+                            if (pkgData.versions && pkgData.versions.length > 0) {
+                                specificVersion = pkgData.versions[pkgData.versions.length - 1].versionKey.version;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Failed to resolve latest version for Go", e);
+                    }
+                }
+
+                versionChecked = specificVersion; // Update checked version
+                promises.push(fetch(`https://api.deps.dev/v3alpha/systems/go/packages/${encodeURIComponent(name)}/versions/${encodeURIComponent(specificVersion)}`));
             }
 
-            let downloads = {};
-            if (downloadsResult.status === 'fulfilled' && downloadsResult.value.ok) {
-                 try { downloads = await downloadsResult.value.json(); } catch (e) { console.warn("Failed to parse downloads json", e); }
+            console.log('Fetching OSV:', { name, version, ecosystem }); // DEBUG LOG
+
+            const results = await Promise.allSettled(promises);
+
+            // Map results based on ecosystem
+            let vulnsResult, metaResult, downloadsResult;
+
+            if (ecosystem === 'npm') {
+                [vulnsResult, metaResult, downloadsResult] = results;
+            } else if (ecosystem === 'PyPI') {
+                [vulnsResult, metaResult] = results;
+            } else if (ecosystem === 'Maven') {
+                [vulnsResult, metaResult] = results;
+            } else if (ecosystem === 'Go') {
+                [vulnsResult, metaResult] = results;
+            } else {
+                [vulnsResult] = results;
             }
 
             let vulns = {};
             if (vulnsResult.status === 'fulfilled' && vulnsResult.value.ok) {
-                 try { vulns = await vulnsResult.value.json(); } catch (e) { console.warn("Failed to parse vulns json", e); }
+                try { vulns = await vulnsResult.value.json(); } catch (e) { console.warn("Failed to parse vulns json", e); }
+            }
+
+            let meta = {};
+            let isNotFound = false;
+
+            // Check metadata status
+            if (metaResult && metaResult.status === 'fulfilled') {
+                if (metaResult.value.ok) {
+                    try {
+                        const data = await metaResult.value.json();
+
+                        if (ecosystem === 'PyPI') {
+                            // Extract version-specific info from releases
+                            const releaseInfo = data.releases?.[version] || [];
+                            const specificRelease = releaseInfo.find(r => r.packagetype === 'bdist_wheel') || releaseInfo[0];
+                            const versionSize = specificRelease?.size;
+                            const versionDownloads = specificRelease?.downloads > 0 ? specificRelease.downloads : null;
+
+                            // Map PyPI data to common format with extra fields
+                            meta = {
+                                description: data.info.description || data.info.summary, // Prefer long description
+                                summary: data.info.summary, // Keep summary separate
+                                license: data.info.license_expression || data.info.license, // Prefer license expression
+                                homepage: data.info.home_page || data.info.project_urls?.Homepage || data.info.project_urls?.Source,
+                                author: { name: data.info.author, email: data.info.author_email },
+                                version: data.info.version, // Latest version
+                                maintainers: data.info.maintainer ? [{ name: data.info.maintainer }] : [],
+                                keywords: data.info.keywords ? (typeof data.info.keywords === 'string' ? data.info.keywords.split(',') : data.info.keywords) : [],
+                                classifiers: data.info.classifiers || [],
+                                project_urls: data.info.project_urls || {},
+                                package_url: data.info.package_url,
+                                // Override generic data with version-specific data
+                                unpackedSize: versionSize || meta.dist?.unpackedSize,
+                                downloads: versionDownloads // This might stay null if not provided
+                            };
+                        } else if (ecosystem === 'Maven') {
+                            // Map Maven (deps.dev) data to common format
+                            // Deps.dev returns versionKey, links, licenses, etc.
+                            const links = {};
+                            (data.links || []).forEach(l => {
+                                if (l.label === 'HOMEPAGE') links.Homepage = l.url;
+                                else if (l.label === 'ISSUE_TRACKER') links.Issues = l.url;
+                                else if (l.label === 'SOURCE_REPO') links.Source = l.url;
+                                else links[l.label] = l.url;
+                            });
+
+                            meta = {
+                                description: data.description || "No description available.", // specific release description might be missing, handled in UI
+                                summary: data.description,
+                                license: (data.licenses || []).join(', '),
+                                homepage: links.Homepage || links.Source,
+                                author: { name: data.versionKey?.name?.split(':')[0] || "Unknown Group" }, // Group ID as author
+                                version: data.versionKey?.version,
+                                maintainers: [],
+                                keywords: [], // Maven rarely has keywords in this API
+                                project_urls: links,
+                                package_url: `https://central.sonatype.com/artifact/${data.versionKey?.name.replace(':', '/')}/${data.versionKey?.version}`,
+                                ecosystem: 'Maven'
+                            };
+                        } else if (ecosystem === 'Go') {
+                            // Map Go (deps.dev) data to common format
+                            const links = {};
+                            (data.links || []).forEach(l => {
+                                if (l.label === 'HOMEPAGE') links.Homepage = l.url;
+                                else if (l.label === 'ISSUE_TRACKER') links.Issues = l.url;
+                                else if (l.label === 'SOURCE_REPO') links.Source = l.url;
+                                else links[l.label] = l.url;
+                            });
+
+                            meta = {
+                                description: data.description || "No description available.",
+                                summary: data.description,
+                                license: (data.licenses || []).join(', '),
+                                homepage: links.Homepage || links.Source,
+                                author: { name: data.versionKey?.name?.split('/')[1] || data.versionKey?.name?.split('/')[0] || "Unknown" },
+                                version: data.versionKey?.version,
+                                maintainers: [],
+                                keywords: [],
+                                project_urls: links,
+                                package_url: `https://pkg.go.dev/${data.versionKey?.name}@${data.versionKey?.version}`,
+                                ecosystem: 'Go'
+                            };
+                        } else {
+                            meta = data;
+                        }
+                    } catch (e) { console.warn("Failed to parse meta json", e); }
+                } else if (metaResult.value.status === 404) {
+                    // Only mark as Not Found if we ALSO didn't find any vulnerabilities
+                    // If we found vulns, the package exists in security database at least
+                    if (!vulns.vulns || vulns.vulns.length === 0) {
+                        isNotFound = true;
+                    }
+                }
+            }
+
+            let downloads = {};
+            if (downloadsResult && downloadsResult.status === 'fulfilled' && downloadsResult.value.ok) {
+                try { downloads = await downloadsResult.value.json(); } catch (e) { console.warn("Failed to parse downloads json", e); }
             }
 
             setPkgDetails(prev => ({
                 ...prev,
                 [name]: {
                     ...meta,
-                    downloads: downloads.downloads,
-                    latestVersion: meta.version,
-                    unpackedSize: meta.dist?.unpackedSize,
-                    vulnerabilities: vulns.vulns || (prev[name]?.vulnerabilities || []), // Use new vulns, or fall back to existing if fetch failed (but if fetch success and empty, it uses [])
-                    versionChecked: version
+                    downloads: meta.downloads !== undefined ? meta.downloads : downloads.downloads,
+                    latestVersion: meta.version || versionChecked, // Fallback for non-NPM
+                    unpackedSize: meta.unpackedSize !== undefined ? meta.unpackedSize : meta.dist?.unpackedSize,
+                    vulnerabilities: vulns.vulns || [],
+                    versionChecked: versionChecked,
+                    ecosystem: ecosystem,
+                    notFound: isNotFound,
+                    error: isNotFound ? `Package '${name}' not found in ${ecosystem}` : null
                 }
             }));
         } catch (err) {
@@ -775,8 +1163,10 @@ const DependencyAnalyzer = () => {
 
     useEffect(() => {
         if (selectedPkg) {
-            const cleanVersion = selectedPkg.version?.replace(/[\^~]/g, '') || '0.0.0';
-            fetchPackageDetails(selectedPkg.name, cleanVersion);
+            const cleanVersion = selectedPkg.version?.replace(/[\^~]/g, '') || 'latest';
+            // Use ecosystem from package if available, otherwise default to 'npm'
+            const eco = selectedPkg.ecosystem || 'npm';
+            fetchPackageDetails(selectedPkg.name, cleanVersion, eco);
             setActiveTab('overview'); // Reset tab on new selection
         }
     }, [selectedPkg]);
@@ -955,6 +1345,33 @@ const DependencyAnalyzer = () => {
         const details = pkgDetails[selectedPkg.name];
         const isLoading = loadingDetails && !details;
 
+        if (details?.error || details?.notFound) {
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedPkg(null)}>
+                    <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-lg text-center" onClick={e => e.stopPropagation()}>
+                        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mx-auto mb-6 border border-red-500/20 shadow-lg shadow-red-500/10">
+                            <AlertTriangle size={32} />
+                        </div>
+                        <h3 className="text-xl font-bold text-white mb-2">Package Not Found</h3>
+                        <p className="text-slate-400 mb-6">
+                            We couldn't find <span className="text-white font-mono bg-slate-800 px-1.5 py-0.5 rounded">{selectedPkg.name}</span> in the {selectedPkg.ecosystem || 'npm'} registry.
+                            {selectedPkg.ecosystem === 'Maven' && !selectedPkg.name.includes(':') && (
+                                <span className="block mt-2 text-sm text-yellow-500/80">
+                                    💡 Tip: Maven packages usually require a Group ID. Try format: <code>group:artifact</code> (e.g. <code>com.google.guava:guava</code>).
+                                </span>
+                            )}
+                        </p>
+                        <button
+                            onClick={() => setSelectedPkg(null)}
+                            className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2.5 rounded-lg transition-colors font-medium border border-slate-700"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
         // Version Comparison Logic
         const cleanVersion = (v) => v?.replace(/[\^~]/g, '') || '0.0.0';
         const currentVer = cleanVersion(selectedPkg.version);
@@ -980,6 +1397,7 @@ const DependencyAnalyzer = () => {
                                 <div className="flex-1 min-w-0">
                                     <h3 className="text-2xl font-bold text-white break-all leading-tight mb-2">{selectedPkg.name}</h3>
                                     <div className="flex flex-wrap items-center gap-2">
+                                        <Badge color="purple" className="uppercase tracking-wider font-bold text-[10px]">{selectedPkg.ecosystem || 'NPM'}</Badge>
                                         <Badge color="blue" className="font-mono">v{selectedPkg.version}</Badge>
 
                                         {selectedPkg.dev || selectedPkg.type === 'dev' ?
@@ -1012,12 +1430,14 @@ const DependencyAnalyzer = () => {
                                 >
                                     Overview
                                 </button>
-                                <button
-                                    onClick={() => setActiveTab('tree')}
-                                    className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'tree' ? 'bg-slate-800 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
-                                >
-                                    Dependencies
-                                </button>
+                                {selectedPkg.type !== 'manual' && (
+                                    <button
+                                        onClick={() => setActiveTab('tree')}
+                                        className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'tree' ? 'bg-slate-800 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                                    >
+                                        Dependencies
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setActiveTab('security')}
                                     className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'security' ? 'bg-slate-800 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
@@ -1038,37 +1458,53 @@ const DependencyAnalyzer = () => {
                                     </div>
                                 ) : details ? (
                                     <div className="space-y-6 animate-fade-in">
-                                        <p className="text-slate-300 leading-relaxed text-sm">
-                                            {details.description || "No description available."}
-                                        </p>
+                                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 text-sm text-slate-300 leading-relaxed max-h-[500px] overflow-y-auto custom-scrollbar">
+                                            <SimpleMarkdown content={details.description || details.summary || "No description available."} />
+                                        </div>
+
+                                        {details.ecosystem === 'PyPI' && details.keywords && details.keywords.length > 0 && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {details.keywords.map((kw, i) => (
+                                                    <span key={i} className="px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                        {kw.trim()}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
 
                                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                                                <div className="flex items-center gap-2 text-slate-500 text-xs mb-1 font-semibold uppercase tracking-wider">
-                                                    <Download size={12} /> Weekly Downloads
+                                            {details.downloads > 0 && (
+                                                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                                                    <div className="flex items-center gap-2 text-slate-500 text-xs mb-1 font-semibold uppercase tracking-wider">
+                                                        <Download size={12} /> {details.ecosystem === 'npm' ? 'Weekly Downloads' : 'Downloads'}
+                                                    </div>
+                                                    <div className="font-bold text-white text-lg">
+                                                        {details.downloads.toLocaleString()}
+                                                    </div>
                                                 </div>
-                                                <div className="font-bold text-white text-lg">
-                                                    {details.downloads ? details.downloads.toLocaleString() : "N/A"}
-                                                </div>
-                                            </div>
+                                            )}
 
-                                            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                                                <div className="flex items-center gap-2 text-slate-500 text-xs mb-1 font-semibold uppercase tracking-wider">
-                                                    <Database size={12} /> Bundle Size
+                                            {details.unpackedSize && (
+                                                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                                                    <div className="flex items-center gap-2 text-slate-500 text-xs mb-1 font-semibold uppercase tracking-wider">
+                                                        <Database size={12} /> Bundle Size
+                                                    </div>
+                                                    <div className="font-bold text-white text-lg">
+                                                        {formatBytes(details.unpackedSize)}
+                                                    </div>
                                                 </div>
-                                                <div className="font-bold text-white text-lg">
-                                                    {details.unpackedSize ? formatBytes(details.unpackedSize) : "N/A"}
-                                                </div>
-                                            </div>
+                                            )}
 
-                                            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 col-span-2 sm:col-span-1">
-                                                <div className="flex items-center gap-2 text-slate-500 text-xs mb-1 font-semibold uppercase tracking-wider">
-                                                    <Tag size={12} /> License
+                                            {details.license && (
+                                                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 col-span-2 sm:col-span-1">
+                                                    <div className="flex items-center gap-2 text-slate-500 text-xs mb-1 font-semibold uppercase tracking-wider">
+                                                        <Tag size={12} /> License
+                                                    </div>
+                                                    <div className="font-bold text-white text-lg truncate" title={details.license}>
+                                                        {details.license}
+                                                    </div>
                                                 </div>
-                                                <div className="font-bold text-white text-lg truncate" title={details.license}>
-                                                    {details.license || "Unknown"}
-                                                </div>
-                                            </div>
+                                            )}
                                         </div>
 
                                         <div className="space-y-2">
@@ -1080,10 +1516,34 @@ const DependencyAnalyzer = () => {
                                                         <ExternalLink size={14} className="text-slate-500 group-hover:text-white" />
                                                     </a>
                                                 )}
-                                                <a href={`https://www.npmjs.com/package/${selectedPkg.name}`} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-800 transition-colors group">
-                                                    <span className="flex items-center gap-2 text-slate-300 group-hover:text-white text-sm"><Box size={16} /> NPM Registry</span>
-                                                    <ExternalLink size={14} className="text-slate-500 group-hover:text-white" />
-                                                </a>
+
+                                                {/* PyPI Extra Links */}
+                                                {details.ecosystem === 'PyPI' && details.project_urls && Object.entries(details.project_urls).map(([key, url]) => {
+                                                    if (key.toLowerCase() === 'homepage' && url === details.homepage) return null;
+                                                    return (
+                                                        <a key={key} href={url} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-800 transition-colors group">
+                                                            <span className="flex items-center gap-2 text-slate-300 group-hover:text-white text-sm capitalize"><ExternalLink size={16} /> {key}</span>
+                                                            <ExternalLink size={14} className="text-slate-500 group-hover:text-white" />
+                                                        </a>
+                                                    );
+                                                })}
+
+                                                {details.package_url && (
+                                                    <a href={details.package_url} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-800 transition-colors group">
+                                                        <span className="flex items-center gap-2 text-slate-300 group-hover:text-white text-sm">
+                                                            <Package size={16} />
+                                                            {details.ecosystem === 'Maven' ? 'Maven Central' : details.ecosystem === 'Go' ? 'Go Packages' : 'PyPI Page'}
+                                                        </span>
+                                                        <ExternalLink size={14} className="text-slate-500 group-hover:text-white" />
+                                                    </a>
+                                                )}
+
+                                                {details.ecosystem === 'npm' && (
+                                                    <a href={`https://www.npmjs.com/package/${selectedPkg.name}`} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-800 transition-colors group">
+                                                        <span className="flex items-center gap-2 text-slate-300 group-hover:text-white text-sm"><Box size={16} /> NPM Registry</span>
+                                                        <ExternalLink size={14} className="text-slate-500 group-hover:text-white" />
+                                                    </a>
+                                                )}
                                             </div>
                                         </div>
 
@@ -1162,113 +1622,33 @@ const DependencyAnalyzer = () => {
                                                 </div>
                                             </div>
 
-                                            {vulnerabilities.map((vuln) => {
-                                                const severity = vuln.database_specific?.severity || "UNKNOWN";
-                                                const severityColor = {
-                                                    CRITICAL: "bg-red-500 text-white border-red-600 shadow-red-500/20",
-                                                    HIGH: "bg-orange-600 text-white border-orange-600 shadow-orange-600/20",
-                                                    MODERATE: "bg-yellow-500 text-black border-yellow-600 shadow-yellow-500/20",
-                                                    LOW: "bg-slate-500 text-white border-slate-600",
-                                                    UNKNOWN: "bg-slate-700 text-slate-300 border-slate-600"
-                                                }[severity.toUpperCase()] || "bg-slate-700 text-slate-300 border-slate-600";
+                                            {vulnerabilities
+                                                .sort((a, b) => {
+                                                    // 1. Severity Sorting
+                                                    const severityOrder = { CRITICAL: 4, HIGH: 3, MODERATE: 2, LOW: 1, UNKNOWN: 0 };
+                                                    const sevA = severityOrder[(a.database_specific?.severity || "UNKNOWN").toUpperCase()] || 0;
+                                                    const sevB = severityOrder[(b.database_specific?.severity || "UNKNOWN").toUpperCase()] || 0;
+                                                    if (sevB !== sevA) return sevB - sevA; // Higher severity first
 
-                                                const applicableFix = getApplicableFix(currentVer, vuln.affected);
+                                                    // 2. Fixed Version Sorting (Desc)
+                                                    const fixA = getApplicableFix(currentVer, a.affected, selectedPkg.ecosystem) || '';
+                                                    const fixB = getApplicableFix(currentVer, b.affected, selectedPkg.ecosystem) || '';
+                                                    if (fixA && fixB && fixA !== fixB) {
+                                                        // Use localeCompare with numeric option for basic semver-like sorting
+                                                        return fixB.localeCompare(fixA, undefined, { numeric: true, sensitivity: 'base' });
+                                                    }
 
-                                                return (
-                                                    <div key={vuln.id} className="bg-slate-950/40 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-all shadow-sm">
-
-                                                        {/* Vuln Header */}
-                                                        <div className="p-5 border-b border-slate-800/50 bg-slate-900/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider border shadow-lg ${severityColor}`}>
-                                                                    {severity}
-                                                                </span>
-                                                                <span className="text-slate-400 font-mono text-sm">
-                                                                    {vuln.id}
-                                                                    {vuln.aliases && vuln.aliases.length > 0 && (
-                                                                        <span className="ml-2 opacity-75">({vuln.aliases[0]})</span>
-                                                                    )}
-                                                                </span>
-                                                            </div>
-                                                            <a
-                                                                href={`https://osv.dev/vulnerability/${vuln.id}`}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                className="text-xs font-medium text-primary-400 hover:text-white flex items-center gap-1.5 transition-colors self-start sm:self-auto"
-                                                            >
-                                                                View on OSV <ExternalLink size={12} />
-                                                            </a>
-                                                        </div>
-
-                                                        <div className="p-6 space-y-6">
-                                                            {/* Title */}
-                                                            <div>
-                                                                <h5 className="text-lg font-bold text-white mb-2 leading-snug">
-                                                                    {vuln.summary || "Security Vulnerability Detected"}
-                                                                </h5>
-                                                                <div className="flex flex-wrap gap-4 text-xs text-slate-500">
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <Calendar size={14} />
-                                                                        Published: {vuln.published ? new Date(vuln.published).toLocaleDateString() : 'N/A'}
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <RefreshCw size={14} />
-                                                                        Modified: {vuln.modified ? new Date(vuln.modified).toLocaleDateString() : 'N/A'}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Fix Info Banner */}
-                                                            <div className="bg-slate-900 rounded-xl p-4 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                                                <div className="flex flex-col gap-1">
-                                                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Current</span>
-                                                                    <span className="font-mono text-sm text-red-400 bg-red-500/10 px-2 py-0.5 rounded w-fit border border-red-500/20">
-                                                                        v{currentVer}
-                                                                    </span>
-                                                                </div>
-
-                                                                <div className="hidden sm:block text-slate-700">
-                                                                    <ArrowRight size={20} />
-                                                                </div>
-
-                                                                <div className="flex flex-col gap-1 w-full sm:w-auto">
-                                                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Fixed In</span>
-                                                                    {applicableFix ? (
-                                                                        <span className="font-mono text-sm text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded w-fit border border-emerald-500/20 flex items-center gap-2">
-                                                                            v{applicableFix} <Check size={12} />
-                                                                        </span>
-                                                                    ) : (
-                                                                        <span className="font-mono text-sm text-slate-400 bg-slate-800 px-2 py-0.5 rounded w-fit">
-                                                                            Analysis inconclusive
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Markdown Details */}
-                                                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800/50">
-                                                                <SimpleMarkdown content={vuln.details} />
-                                                            </div>
-
-                                                            {/* References */}
-                                                            {vuln.references && vuln.references.length > 0 && (
-                                                                <div>
-                                                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">References</div>
-                                                                    <div className="grid grid-cols-1 gap-2">
-                                                                        {vuln.references.map((ref, i) => (
-                                                                            <a key={i} href={ref.url} target="_blank" rel="noreferrer" className="text-sm text-primary-400 hover:text-white truncate flex items-center gap-2 transition-colors group p-2 rounded hover:bg-slate-800">
-                                                                                <ExternalLink size={14} className="text-primary-500/50 group-hover:text-primary-400" />
-                                                                                <span className="truncate">{ref.url}</span>
-                                                                            </a>
-                                                                        ))}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                                    // 3. Published Date Sorting (Desc)
+                                                    return new Date(b.published || 0) - new Date(a.published || 0);
+                                                })
+                                                .map(vuln => (
+                                                    <VulnerabilityCard
+                                                        key={vuln.id}
+                                                        vuln={vuln}
+                                                        currentVer={currentVer}
+                                                        ecosystem={selectedPkg.ecosystem}
+                                                    />
+                                                ))}       </div>
                                     ) : (
                                         <div className="flex flex-col items-center justify-center py-20 text-center">
                                             <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 mb-6 border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
@@ -1284,7 +1664,139 @@ const DependencyAnalyzer = () => {
                             )}
                         </div>
                     </div>
+                </div >
+            </div >
+        );
+    };
+
+    // Sub-component for individual vulnerability card
+    const VulnerabilityCard = ({ vuln, currentVer, ecosystem }) => {
+        const [isExpanded, setIsExpanded] = useState(false);
+        const severity = (vuln.database_specific?.severity || "UNKNOWN").toUpperCase();
+        const severityColor = {
+            CRITICAL: "bg-red-500 text-white border-red-600 shadow-red-500/20",
+            HIGH: "bg-orange-600 text-white border-orange-600 shadow-orange-600/20",
+            MODERATE: "bg-yellow-500 text-black border-yellow-600 shadow-yellow-500/20",
+            LOW: "bg-slate-500 text-white border-slate-600",
+            UNKNOWN: "bg-slate-700 text-slate-300 border-slate-600"
+        }[severity] || "bg-slate-700 text-slate-300 border-slate-600";
+
+        const applicableFix = getApplicableFix(currentVer, vuln.affected, ecosystem);
+
+        return (
+            <div className={`bg-slate-950/40 border ${isExpanded ? 'border-primary-500/30' : 'border-slate-800'} rounded-2xl overflow-hidden hover:border-slate-700 transition-all shadow-sm`}>
+
+                {/* Header - Click to toggle */}
+                <div
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="p-4 sm:p-5 border-b border-white/5 bg-slate-900/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:bg-slate-900/50 transition-colors group"
+                >
+                    <div className="flex items-center gap-3">
+                        <button className="text-slate-500 group-hover:text-white transition-colors">
+                            {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                        </button>
+                        <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider border shadow-lg ${severityColor}`}>
+                            {severity}
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-slate-400 font-mono text-sm">{vuln.id}</span>
+                            {applicableFix && !isExpanded && (
+                                <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    Fixed: v{applicableFix}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        {!isExpanded && (
+                            <div className="text-slate-500 text-xs truncate max-w-[200px] hidden sm:block">
+                                {vuln.summary || "Security Vulnerability Detected"}
+                            </div>
+                        )}
+                        <a
+                            href={`https://osv.dev/vulnerability/${vuln.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-xs font-medium text-primary-400 hover:text-white flex items-center gap-1.5 transition-colors"
+                        >
+                            OSV <ExternalLink size={12} />
+                        </a>
+                    </div>
                 </div>
+
+                {/* Expanded Content */}
+                {isExpanded && (
+                    <div className="p-6 space-y-6 animate-fade-in">
+                        {/* Title */}
+                        <div>
+                            <h5 className="text-lg font-bold text-white mb-2 leading-snug">
+                                {vuln.summary || "Security Vulnerability Detected"}
+                            </h5>
+                            <div className="flex flex-wrap gap-4 text-xs text-slate-500">
+                                <div className="flex items-center gap-1.5">
+                                    <Calendar size={14} />
+                                    Published: {vuln.published ? new Date(vuln.published).toLocaleDateString() : 'N/A'}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <RefreshCw size={14} />
+                                    Modified: {vuln.modified ? new Date(vuln.modified).toLocaleDateString() : 'N/A'}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Fix Info Banner */}
+                        <div className="bg-slate-900 rounded-xl p-4 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="flex flex-col gap-1">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Current</span>
+                                <span className="font-mono text-sm text-red-400 bg-red-500/10 px-2 py-0.5 rounded w-fit border border-red-500/20">
+                                    v{currentVer}
+                                </span>
+                            </div>
+
+                            <div className="hidden sm:block text-slate-700">
+                                <ArrowRight size={20} />
+                            </div>
+
+                            <div className="flex flex-col gap-1 min-w-[120px]">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Fixed In</span>
+                                {applicableFix ? (
+                                    <span className="font-mono text-sm text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded w-fit border border-emerald-500/20 flex items-center gap-2">
+                                        v{applicableFix} <Check size={12} />
+                                    </span>
+                                ) : (
+                                    <span className="font-mono text-sm text-slate-400 bg-slate-800 px-2 py-0.5 rounded w-fit">
+                                        No fix available
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Description Text */}
+                        {vuln.details && (
+                            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 text-sm text-slate-300 leading-relaxed max-h-96 overflow-y-auto custom-scrollbar">
+                                <SimpleMarkdown content={vuln.details} />
+                            </div>
+                        )}
+
+                        {/* References */}
+                        {vuln.references && vuln.references.length > 0 && (
+                            <div className="pt-2 border-t border-slate-800/50">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">References</span>
+                                <ul className="space-y-1">
+                                    {vuln.references.slice(0, 3).map((ref, idx) => (
+                                        <li key={idx}>
+                                            <a href={ref.url} target="_blank" rel="noreferrer" className="text-xs text-primary-400 hover:text-primary-300 truncate block max-w-md hover:underline">
+                                                {ref.url}
+                                            </a>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         );
     };
@@ -1314,6 +1826,13 @@ const DependencyAnalyzer = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setShowManualSearch(!showManualSearch)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${showManualSearch ? 'bg-primary-500/10 text-primary-400 border border-primary-500/20' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'}`}
+                    >
+                        <Search size={14} />
+                        Manual Search
+                    </button>
                     {data && (
                         <>
                             <button
@@ -1346,28 +1865,28 @@ const DependencyAnalyzer = () => {
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden relative z-10">
                 {!data ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-8 overflow-y-auto">
                         <div
-                            className={`w-full max-w-2xl border-2 border-dashed rounded-3xl p-16 flex flex-col items-center justify-center text-center transition-all duration-300 group ${dragActive ? 'border-primary-500 bg-primary-500/5 scale-[1.02]' : 'border-slate-800 hover:border-slate-700 hover:bg-slate-900/30'
+                            className={`w-full max-w-2xl border-2 border-dashed rounded-3xl p-10 flex flex-col items-center justify-center text-center transition-all duration-300 group mb-8 ${dragActive ? 'border-primary-500 bg-primary-500/5 scale-[1.02]' : 'border-slate-800 hover:border-slate-700 hover:bg-slate-900/30'
                                 }`}
                             onDragEnter={handleDrag}
                             onDragLeave={handleDrag}
                             onDragOver={handleDrag}
                             onDrop={handleDrop}
                         >
-                            <div className="w-24 h-24 bg-slate-900 rounded-3xl flex items-center justify-center mb-8 shadow-2xl shadow-black/50 group-hover:scale-110 transition-transform duration-300 relative">
+                            <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center mb-6 shadow-2xl shadow-black/50 group-hover:scale-110 transition-transform duration-300 relative">
                                 <div className="absolute inset-0 bg-primary-500/20 blur-xl rounded-full" />
-                                <FileJson className="text-primary-500 relative z-10" size={48} />
+                                <FileJson className="text-primary-500 relative z-10" size={40} />
                             </div>
-                            <h3 className="text-3xl font-bold text-white mb-4">Drop package.json here</h3>
-                            <p className="text-slate-400 mb-10 max-w-md leading-relaxed text-lg">
+                            <h3 className="text-2xl font-bold text-white mb-3">Drop package.json here</h3>
+                            <p className="text-slate-400 mb-8 max-w-md leading-relaxed">
                                 Unlock insights about your project's dependencies, scripts, and security posture.
                             </p>
 
                             <label className="relative group/btn">
                                 <input type="file" className="hidden" accept=".json" onChange={handleFileChange} />
-                                <span className="px-8 py-4 bg-white text-slate-900 hover:bg-slate-200 rounded-xl font-bold cursor-pointer transition-all shadow-lg shadow-white/10 flex items-center gap-2">
-                                    <Upload size={20} />
+                                <span className="px-6 py-3 bg-white text-slate-900 hover:bg-slate-200 rounded-xl font-bold cursor-pointer transition-all shadow-lg shadow-white/10 flex items-center gap-2 text-sm">
+                                    <Upload size={18} />
                                     Select File
                                 </span>
                             </label>
@@ -1379,6 +1898,23 @@ const DependencyAnalyzer = () => {
                                 </div>
                             )}
                         </div>
+
+                        <div className="flex items-center gap-4 w-full max-w-2xl text-slate-700 mb-8">
+                            <div className="h-px bg-slate-800 flex-1"></div>
+                            <span className="text-sm font-medium uppercase tracking-wider">OR</span>
+                            <div className="h-px bg-slate-800 flex-1"></div>
+                        </div>
+
+                        <div className="w-full max-w-xl">
+                            <div className="text-center mb-4">
+                                <h4 className="text-white font-semibold mb-1">Check Single Package</h4>
+                                <p className="text-slate-500 text-sm">Instant vulnerability scan for any package.</p>
+                            </div>
+                            <div className="flex justify-center">
+                                <ManualSearchForm onSearch={handleManualSearch} loading={loadingDetails} />
+                            </div>
+                        </div>
+
                     </div>
                 ) : (
                     <div className="flex-1 flex flex-col overflow-y-auto pb-20">
@@ -1696,11 +2232,27 @@ const DependencyAnalyzer = () => {
                             )}
                         </div>
 
-                        {/* Details Panel Overlay */}
-                        {selectedPkg && renderDetailsPanel()}
                     </div>
                 )}
-            </div>
+
+                {/* Global Overlays */}
+                {selectedPkg && renderDetailsPanel()}
+
+                {/* Manual Search Modal Overlay for Internal View */}
+                {showManualSearch && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm" onClick={() => setShowManualSearch(false)}>
+                        <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-xl font-bold text-white">Manual Package Search</h3>
+                                <button onClick={() => setShowManualSearch(false)} className="text-slate-400 hover:text-white">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <ManualSearchForm onSearch={handleManualSearch} loading={loadingDetails} />
+                        </div>
+                    </div>
+                )}
+            </div >
         </div >
     );
 };
