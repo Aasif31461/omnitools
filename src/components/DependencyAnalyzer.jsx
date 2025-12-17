@@ -725,7 +725,7 @@ const DependencyAnalyzer = () => {
 
         setLoadingDetails(true);
         try {
-            const [metaRes, downloadsRes, vulnsRes] = await Promise.all([
+            const results = await Promise.allSettled([
                 fetch(`https://registry.npmjs.org/${name}/latest`),
                 fetch(`https://api.npmjs.org/downloads/point/last-week/${name}`),
                 fetch('https://api.osv.dev/v1/query', {
@@ -738,9 +738,22 @@ const DependencyAnalyzer = () => {
                 })
             ]);
 
-            const meta = metaRes.ok ? await metaRes.json() : {};
-            const downloads = downloadsRes.ok ? await downloadsRes.json() : {};
-            const vulns = vulnsRes.ok ? await vulnsRes.json() : {};
+            const [metaResult, downloadsResult, vulnsResult] = results;
+
+            let meta = {};
+            if (metaResult.status === 'fulfilled' && metaResult.value.ok) {
+                try { meta = await metaResult.value.json(); } catch (e) { console.warn("Failed to parse meta json", e); }
+            }
+
+            let downloads = {};
+            if (downloadsResult.status === 'fulfilled' && downloadsResult.value.ok) {
+                 try { downloads = await downloadsResult.value.json(); } catch (e) { console.warn("Failed to parse downloads json", e); }
+            }
+
+            let vulns = {};
+            if (vulnsResult.status === 'fulfilled' && vulnsResult.value.ok) {
+                 try { vulns = await vulnsResult.value.json(); } catch (e) { console.warn("Failed to parse vulns json", e); }
+            }
 
             setPkgDetails(prev => ({
                 ...prev,
@@ -749,7 +762,7 @@ const DependencyAnalyzer = () => {
                     downloads: downloads.downloads,
                     latestVersion: meta.version,
                     unpackedSize: meta.dist?.unpackedSize,
-                    vulnerabilities: vulns.vulns || [],
+                    vulnerabilities: vulns.vulns || (prev[name]?.vulnerabilities || []), // Use new vulns, or fall back to existing if fetch failed (but if fetch success and empty, it uses [])
                     versionChecked: version
                 }
             }));
